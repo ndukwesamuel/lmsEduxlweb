@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_URL ?? '/api/v1';
+const BASE_URL = 'https://lmsedulxbackend-production-3ffa.up.railway.app/api/v1';
 
 export class ApiError extends Error {
   status: number;
