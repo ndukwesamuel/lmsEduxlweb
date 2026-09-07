@@ -1,0 +1,394 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-sans bg-paper text-ink antialiased;
+  }
+
+  h1, h2, h3 {
+    @apply font-display font-bold tracking-tight text-ink;
+  }
+
+  .app-content > h1 {
+    @apply text-2xl mb-6;
+  }
+
+  .app-content h2 {
+    @apply text-base font-semibold mb-3 mt-2;
+  }
+
+  button {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-xl2 bg-brand-600 text-white text-sm font-semibold px-4 py-2 shadow-sm transition hover:bg-brand-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+}
+
+@layer components {
+  /* ---------- Auth ---------- */
+
+  .auth-page {
+    @apply min-h-screen grid grid-cols-1 md:grid-cols-2;
+  }
+
+  .auth-brand {
+    @apply relative overflow-hidden hidden md:flex flex-col justify-center p-16 text-white;
+    background: radial-gradient(circle at 15% 15%, #2dd4bf, #0f766e 55%, #0c4a45);
+  }
+
+  .auth-brand-mark {
+    @apply font-display font-bold text-2xl tracking-tight;
+  }
+
+  .auth-brand h2 {
+    @apply text-4xl leading-tight mt-6 mb-3 max-w-md text-white;
+  }
+
+  .auth-brand p {
+    @apply text-white/80 max-w-sm leading-relaxed text-base font-normal;
+  }
+
+  .auth-panel {
+    @apply flex items-center justify-center p-8;
+  }
+
+  .auth-card {
+    @apply w-full max-w-sm flex flex-col gap-5;
+  }
+
+  .auth-card h1 {
+    @apply text-2xl mb-0;
+  }
+
+  .auth-subtitle {
+    @apply text-sm text-ink-soft -mt-3 mb-1;
+  }
+
+  .auth-card label {
+    @apply flex flex-col gap-1.5 text-sm font-semibold text-ink-soft;
+  }
+
+  .auth-card input {
+    @apply px-3.5 py-2.5 border border-stone-200 rounded-xl2 text-sm font-sans transition focus:outline-none focus:ring-4 focus:ring-brand-100 focus:border-brand-500;
+  }
+
+  .auth-card button[type='submit'] {
+    @apply mt-1 py-3 text-base;
+  }
+
+  /* ---------- App shell ---------- */
+
+  .app-shell {
+    @apply min-h-screen flex bg-paper;
+  }
+
+  .app-sidebar {
+    @apply fixed inset-y-0 left-0 z-30 w-64 -translate-x-full bg-white border-r border-stone-200 flex flex-col p-4 transition-transform duration-200 ease-out;
+    @apply lg:static lg:z-auto lg:w-56 lg:shrink-0 lg:translate-x-0;
+  }
+
+  .app-sidebar-open {
+    @apply translate-x-0 shadow-card-lg;
+  }
+
+  .app-sidebar-backdrop {
+    @apply fixed inset-0 z-20 bg-ink/30 lg:hidden;
+  }
+
+  .app-sidebar .brand {
+    @apply font-display font-bold text-lg text-brand-700 tracking-tight px-2 mb-8 block;
+  }
+
+  .app-sidebar nav {
+    @apply flex flex-col gap-1 flex-1;
+  }
+
+  .app-sidebar nav a {
+    @apply text-sm font-medium text-ink-soft no-underline px-3 py-2.5 rounded-xl2 transition hover:bg-stone-100 hover:text-ink;
+  }
+
+  .app-sidebar nav a.active {
+    @apply bg-brand-50 text-brand-700 font-semibold hover:bg-brand-50 hover:text-brand-700;
+  }
+
+  .sidebar-user {
+    @apply border-t border-stone-200 pt-4 flex flex-col gap-2.5;
+  }
+
+  .user-name {
+    @apply text-sm font-semibold text-ink;
+  }
+
+  .user-role {
+    @apply text-xs text-ink-soft capitalize;
+  }
+
+  .sidebar-user button {
+    @apply bg-stone-100 text-stone-700 shadow-none text-xs px-3 py-1.5 hover:bg-stone-200;
+  }
+
+  .app-main {
+    @apply flex-1 flex flex-col min-w-0;
+  }
+
+  .app-topbar {
+    @apply flex justify-between items-center gap-3 px-4 sm:px-6 lg:px-10 pt-4 lg:justify-end;
+  }
+
+  .mobile-menu-btn {
+    @apply bg-white border border-stone-200 text-ink-soft shadow-none w-9 h-9 rounded-full p-0 hover:bg-stone-50 hover:text-ink lg:hidden;
+  }
+
+  .mobile-brand {
+    @apply font-display font-bold text-base text-brand-700 tracking-tight flex-1 lg:hidden;
+  }
+
+  .app-content {
+    @apply flex-1 px-4 sm:px-6 lg:px-10 pb-10 pt-2 max-w-[1100px] w-full;
+  }
+
+  /* ---------- Forms / inputs ---------- */
+
+  .inline-form {
+    @apply flex flex-wrap gap-2.5 items-center bg-white p-4 rounded-xl2 border border-stone-200 shadow-card mb-5;
+  }
+
+  .inline-form input,
+  .inline-form select {
+    @apply px-3 py-2 border border-stone-200 rounded-lg text-sm font-sans transition focus:outline-none focus:ring-4 focus:ring-brand-100 focus:border-brand-500;
+  }
+
+  .inline-form button[type='button'] {
+    @apply bg-stone-100 text-ink hover:bg-stone-200;
+  }
+
+  /* ---------- Tables ---------- */
+
+  /* Tables stay at the container's full width so columns squeeze and wrap
+     (e.g. action buttons) instead of forcing horizontal scroll. overflow-x
+     is kept only as a fallback for content that genuinely can't wrap. */
+  .table-scroll {
+    @apply w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0;
+    /* CSS-only "scroll shadow": a soft shadow sits at each edge only while
+       there's more content that way to scroll to — it scrolls out of view
+       with the content once you reach that edge, so it never lies about
+       whether there's more to see. */
+    background-image: linear-gradient(to right, #faf9f7, transparent), linear-gradient(to left, #faf9f7, transparent),
+      linear-gradient(to right, rgba(28, 25, 23, 0.12), transparent), linear-gradient(to left, rgba(28, 25, 23, 0.12), transparent);
+    background-position: left, right, left, right;
+    background-repeat: no-repeat;
+    background-size: 24px 100%, 24px 100%, 10px 100%, 10px 100%;
+    background-attachment: local, local, scroll, scroll;
+  }
+
+  .data-table {
+    @apply w-full border-collapse bg-white rounded-xl2 overflow-hidden shadow-card border border-stone-200;
+  }
+
+  /* Opt-in for tables with few, short-content columns (e.g. Admissions'
+     Applicant/Status/Actions) — forces columns to split available width so
+     the table fits without scrolling, instead of letting one column's
+     unbreakable content (a button label) push the whole table wider.
+     Not applied to wide/many-column tables (Students, Classes): squeezing
+     those to fit would make them illegible: a horizontal scroll on the
+     `.table-scroll` wrapper is the correct, standard pattern for those. */
+  .data-table.fit-columns {
+    @apply table-fixed;
+  }
+
+  .data-table th {
+    @apply text-left px-4 py-3 bg-stone-50 text-ink-soft font-bold text-[11px] uppercase tracking-wider;
+  }
+
+  .data-table td {
+    @apply text-left px-4 py-3 border-t border-stone-100 text-sm text-ink;
+  }
+
+  .data-table tbody tr:hover {
+    @apply bg-brand-50/30;
+  }
+
+  .data-table td button {
+    @apply px-2.5 py-1.5 text-xs break-words whitespace-normal;
+  }
+
+  .data-table.compact th,
+  .data-table.compact td {
+    @apply px-3 py-2 text-xs whitespace-nowrap;
+  }
+
+  /* ---------- Status / grade badges ---------- */
+
+  .status-badge {
+    @apply inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold;
+  }
+
+  .status-Applied, .status-Reviewed, .status-Interview {
+    @apply bg-sky-50 text-sky-700;
+  }
+
+  .status-Approved, .status-Registered {
+    @apply bg-accent-50 text-accent-600;
+  }
+
+  .status-Active {
+    @apply bg-brand-50 text-brand-700;
+  }
+
+  .status-Rejected, .status-NotAdmitted, .status-Withdrawn {
+    @apply bg-red-50 text-red-600;
+  }
+
+  .grade-A {
+    @apply bg-brand-50 text-brand-700;
+  }
+
+  .grade-B {
+    @apply bg-sky-50 text-sky-700;
+  }
+
+  .grade-C {
+    @apply bg-accent-50 text-accent-600;
+  }
+
+  .grade-D, .grade-F {
+    @apply bg-red-50 text-red-600;
+  }
+
+  /* ---------- Dashboard stat cards ---------- */
+
+  .stat-grid {
+    @apply flex flex-wrap gap-4 mb-8;
+  }
+
+  .stat-card {
+    @apply bg-white border border-stone-200 rounded-xl2 shadow-card px-6 py-5 min-w-[200px] flex flex-col;
+  }
+
+  .stat-label {
+    @apply text-[11px] font-bold uppercase tracking-wider text-ink-soft;
+  }
+
+  .stat-value {
+    @apply font-display text-3xl font-bold text-ink mt-1;
+  }
+
+  .stat-value-sm {
+    @apply font-display text-xl font-bold text-ink;
+  }
+
+  .stat-sub {
+    @apply text-xs text-ink-soft mt-0.5;
+  }
+
+  /* ---------- Card grid (teacher / parent dashboards) ---------- */
+
+  .card-grid {
+    @apply grid gap-4;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  }
+
+  .info-card {
+    @apply bg-white border border-stone-200 rounded-xl2 shadow-card p-5 flex flex-col gap-2;
+  }
+
+  .info-card-top {
+    @apply flex items-center justify-between gap-2;
+  }
+
+  .info-card-title {
+    @apply font-display font-bold text-base text-ink;
+  }
+
+  .info-card-sub {
+    @apply text-ink-soft text-xs m-0;
+  }
+
+  .info-card-empty {
+    @apply text-ink-soft text-xs;
+  }
+
+  .info-card-stats {
+    @apply flex gap-6 my-1;
+  }
+
+  .info-card-stats > div {
+    @apply flex flex-col;
+  }
+
+  .info-card-link {
+    @apply text-brand-600 text-sm font-semibold no-underline hover:underline;
+  }
+
+  .role-chip {
+    @apply bg-stone-100 text-ink-soft text-[11px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap;
+  }
+
+  .role-chip-form {
+    @apply bg-brand-50 text-brand-700;
+  }
+
+  .role-chip-present {
+    @apply bg-brand-50 text-brand-700;
+  }
+
+  .role-chip-absent {
+    @apply bg-red-50 text-red-600;
+  }
+
+  /* ---------- Notifications bell ---------- */
+
+  .notif-wrap {
+    @apply relative;
+  }
+
+  .notif-bell {
+    @apply bg-white border border-stone-200 text-ink-soft shadow-none w-9 h-9 rounded-full p-0 relative hover:bg-stone-50 hover:text-ink;
+  }
+
+  .notif-dot {
+    @apply absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-4 rounded-full flex items-center justify-center px-1;
+  }
+
+  .notif-panel {
+    @apply absolute right-0 top-[calc(100%+0.5rem)] w-80 bg-white border border-stone-200 rounded-xl2 shadow-card-lg z-20 overflow-hidden;
+  }
+
+  .notif-panel-header {
+    @apply px-4 py-3 font-display font-bold text-sm border-b border-stone-100;
+  }
+
+  .notif-empty {
+    @apply px-4 py-6 text-center text-ink-soft text-sm m-0;
+  }
+
+  .notif-list {
+    @apply list-none m-0 p-0 max-h-80 overflow-y-auto;
+  }
+
+  .notif-item {
+    @apply px-4 py-3 border-b border-stone-100 last:border-0 cursor-pointer flex flex-col gap-1 bg-brand-50/70;
+  }
+
+  .notif-item.read {
+    @apply bg-transparent cursor-default;
+  }
+
+  .notif-message {
+    @apply text-sm text-ink leading-snug;
+  }
+
+  .notif-time {
+    @apply text-xs text-ink-soft;
+  }
+
+  /* ---------- Misc ---------- */
+
+  .error {
+    @apply text-red-600 bg-red-50 px-3.5 py-2.5 rounded-lg text-sm;
+  }
+
+  .success {
+    @apply text-brand-700 bg-brand-50 px-3.5 py-2.5 rounded-lg text-sm inline-block;
+  }
+}
