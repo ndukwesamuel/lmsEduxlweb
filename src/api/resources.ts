@@ -2,12 +2,19 @@ import { api } from './client';
 import {
   Admission,
   AdmissionStatus,
+  Announcement,
   AppNotification,
   AttendanceLog,
+  AttendanceSummaryRow,
   AuthUser,
+  ConductRating,
   DashboardSummary,
+  Expense,
+  Fee,
+  FullResultCard,
   Grade,
   ParentDashboard,
+  ReportCard,
   SchoolClass,
   Student,
   TeacherDashboard,
@@ -43,16 +50,19 @@ export const classes = {
 export const admissions = {
   list: () => api.get<Admission[]>('/admissions'),
   create: (applicantName: string) => api.post<Admission>('/admissions', { applicantName }),
-  transition: (id: string, newStatus: AdmissionStatus, extra?: { classId?: string; dob?: string }) =>
+  updateContact: (id: string, data: { guardianName?: string; guardianPhone?: string; guardianEmail?: string }) =>
+    api.patch<Admission>(`/admissions/${id}`, data),
+  transition: (id: string, newStatus: AdmissionStatus, extra?: { classId?: string; dob?: string; feeAmount?: number }) =>
     api.patch<Admission>(`/admissions/${id}/status`, { newStatus, ...extra }),
 };
 
 export const attendance = {
-  mark: (classId: string, date: string, entries: { studentId: string; present: boolean }[]) =>
+  mark: (classId: string, date: string, entries: { studentId: string; present: boolean; comment?: string }[]) =>
     api.post<AttendanceLog[]>('/attendance', { classId, date, entries }),
   history: (classId: string, date?: string) =>
     api.get<AttendanceLog[]>(`/attendance?classId=${classId}${date ? `&date=${date}` : ''}`),
   historyForStudent: (studentId: string) => api.get<AttendanceLog[]>(`/attendance?studentId=${studentId}`),
+  summary: (classId: string) => api.get<AttendanceSummaryRow[]>(`/attendance/summary?classId=${classId}`),
 };
 
 export const grades = {
@@ -60,8 +70,38 @@ export const grades = {
     const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][]).toString();
     return api.get<Grade[]>(`/grades${qs ? `?${qs}` : ''}`);
   },
-  post: (data: { studentId: string; classId: string; subject: string; term: string; score: number }) =>
+  post: (data: { studentId: string; classId: string; subject: string; term: string; caScore: number; examScore: number }) =>
     api.post<Grade>('/grades', data),
+};
+
+export const reportCards = {
+  get: (studentId: string, term: string) =>
+    api.get<FullResultCard>(`/report-cards/${studentId}?term=${encodeURIComponent(term)}`),
+  setConduct: (data: { studentId: string; classId: string; term: string; conductRating?: ConductRating; teacherComment?: string }) =>
+    api.patch<ReportCard>('/report-cards', data),
+  setAdminRemark: (studentId: string, term: string, adminRemark: string) =>
+    api.patch<ReportCard>(`/report-cards/${studentId}/admin-remark`, { term, adminRemark }),
+};
+
+export const fees = {
+  list: (params: { studentId?: string; term?: string }) => {
+    const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][]).toString();
+    return api.get<Fee[]>(`/fees${qs ? `?${qs}` : ''}`);
+  },
+  assign: (studentId: string, term: string, amountAssigned: number) =>
+    api.post<Fee>('/fees', { studentId, term, amountAssigned }),
+  recordPayment: (id: string, amountPaid: number) => api.patch<Fee>(`/fees/${id}`, { amountPaid }),
+};
+
+export const expenses = {
+  list: () => api.get<Expense[]>('/expenses'),
+  create: (data: { category: string; description: string; amount: number; date?: string }) =>
+    api.post<Expense>('/expenses', data),
+};
+
+export const announcements = {
+  list: () => api.get<Announcement[]>('/announcements'),
+  create: (data: { title: string; message: string }) => api.post<Announcement>('/announcements', data),
 };
 
 export const notifications = {

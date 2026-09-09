@@ -30,6 +30,9 @@ export interface Admission {
   applicantName: string;
   status: AdmissionStatus;
   statusHistory: StatusHistoryEntry[];
+  guardianName?: string;
+  guardianPhone?: string;
+  guardianEmail?: string;
   createdAt: string;
 }
 
@@ -63,7 +66,16 @@ export interface AttendanceLog {
   classId: string;
   date: string;
   present: boolean;
+  comment?: string;
   markedBy: string;
+}
+
+export interface AttendanceSummaryRow {
+  studentId: string;
+  name: string;
+  daysPresent: number;
+  totalDays: number;
+  attendanceRate: number | null;
 }
 
 export interface UserAccount {
@@ -81,6 +93,8 @@ export interface DashboardSummary {
     totalMarked: number;
     rate: number | null;
   };
+  studentsPerClass: { classId: string; name: string; count: number }[];
+  finance: { totalIncome: number; totalExpense: number };
 }
 
 export interface Grade {
@@ -89,14 +103,16 @@ export interface Grade {
   classId: string;
   subject: string;
   term: string;
-  score: number;
+  caScore: number;
+  examScore: number;
+  total: number;
   letterGrade: string;
   enteredBy: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export type NotificationType = 'attendance_absent' | 'grade_posted' | 'admission_status';
+export type NotificationType = 'attendance_absent' | 'grade_posted' | 'admission_status' | 'announcement';
 
 export interface AppNotification {
   _id: string;
@@ -124,9 +140,59 @@ export interface ParentChildSummary {
   name: string;
   classId: string;
   presentToday: boolean | null;
-  recentGrades: { subject: string; term: string; score: number; letterGrade: string }[];
+  recentGrades: { subject: string; term: string; caScore: number; examScore: number; total: number; letterGrade: string }[];
 }
 
 export interface ParentDashboard {
   children: ParentChildSummary[];
+}
+
+export type ConductRating = 'Excellent' | 'Good' | 'Fair' | 'Needs Improvement';
+
+export interface ReportCard {
+  _id: string;
+  studentId: string;
+  classId: string;
+  term: string;
+  conductRating?: ConductRating;
+  teacherComment?: string;
+  adminRemark?: string;
+}
+
+export interface FullResultCard {
+  student: { id: string; name: string; classId: string };
+  term: string;
+  subjects: { subject: string; caScore: number; examScore: number; total: number; letterGrade: string }[];
+  conductRating: ConductRating | null;
+  teacherComment: string | null;
+  adminRemark: string | null;
+  attendance: { daysPresent: number; totalDays: number; attendanceRate: number | null };
+}
+
+export type FeeStatus = 'paid' | 'partial' | 'unpaid';
+
+export interface Fee {
+  _id: string;
+  studentId: string;
+  term: string;
+  amountAssigned: number;
+  amountPaid: number;
+  status: FeeStatus;
+}
+
+export interface Expense {
+  _id: string;
+  category: string;
+  description: string;
+  amount: number;
+  date: string;
+  createdBy: string;
+}
+
+export interface Announcement {
+  _id: string;
+  title: string;
+  message: string;
+  createdBy: string;
+  createdAt: string;
 }

@@ -14,6 +14,10 @@ const STAGE_ORDER = [
   'Withdrawn',
 ];
 
+function formatNaira(amount: number): string {
+  return `₦${amount.toLocaleString('en-NG')}`;
+}
+
 export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -46,26 +50,66 @@ export default function DashboardPage() {
             {summary.todaysAttendance.present} / {summary.todaysAttendance.totalMarked} marked present
           </span>
         </div>
+        <div className="stat-card">
+          <span className="stat-label">Total Income</span>
+          <span className="stat-value text-brand-700">{formatNaira(summary.finance.totalIncome)}</span>
+          <span className="stat-sub">Fees collected to date</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-label">Total Expense</span>
+          <span className="stat-value text-red-600">{formatNaira(summary.finance.totalExpense)}</span>
+          <span className="stat-sub">Operational costs to date</span>
+        </div>
       </section>
 
-      <h2>Applicants by Stage</h2>
-      <div className="table-scroll">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Stage</th>
-              <th>Count</th>
-            </tr>
-          </thead>
-          <tbody>
-            {STAGE_ORDER.map((stage) => (
-              <tr key={stage}>
-                <td>{stage}</td>
-                <td>{summary.admissionsByStage[stage] ?? 0}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="card-grid">
+        <div className="info-card">
+          <h2 className="info-card-title">Applicants by Stage</h2>
+          <div className="table-scroll">
+            <table className="data-table compact">
+              <thead>
+                <tr>
+                  <th>Stage</th>
+                  <th>Count</th>
+                </tr>
+              </thead>
+              <tbody>
+                {STAGE_ORDER.map((stage) => (
+                  <tr key={stage}>
+                    <td>{stage}</td>
+                    <td>{summary.admissionsByStage[stage] ?? 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="info-card">
+          <h2 className="info-card-title">Students Per Class</h2>
+          {summary.studentsPerClass.length === 0 ? (
+            <p className="info-card-empty">No active students enrolled yet.</p>
+          ) : (
+            <div className="table-scroll">
+              <table className="data-table compact">
+                <thead>
+                  <tr>
+                    <th>Class</th>
+                    <th>Enrolled students</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summary.studentsPerClass.map((row) => (
+                    <tr key={row.classId}>
+                      <td>{row.name}</td>
+                      <td>{row.count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

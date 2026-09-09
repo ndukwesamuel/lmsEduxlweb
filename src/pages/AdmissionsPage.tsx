@@ -19,7 +19,15 @@ export default function AdmissionsPage() {
   const [classList, setClassList] = useState<SchoolClass[]>([]);
   const [applicantName, setApplicantName] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [activeTarget, setActiveTarget] = useState<{ id: string; classId: string; dob: string } | null>(null);
+  const [activeTarget, setActiveTarget] = useState<{ id: string; classId: string; dob: string; feeAmount: string } | null>(
+    null
+  );
+  const [contactTarget, setContactTarget] = useState<{
+    id: string;
+    guardianName: string;
+    guardianPhone: string;
+    guardianEmail: string;
+  } | null>(null);
 
   function refresh() {
     admissionsApi.list().then(setList).catch((err) => setError(err.message));
@@ -45,7 +53,7 @@ export default function AdmissionsPage() {
   async function handleTransition(admission: Admission, newStatus: AdmissionStatus) {
     setError(null);
     if (newStatus === 'Active') {
-      setActiveTarget({ id: admission._id, classId: '', dob: '' });
+      setActiveTarget({ id: admission._id, classId: '', dob: '', feeAmount: '' });
       return;
     }
     try {
@@ -64,11 +72,38 @@ export default function AdmissionsPage() {
       await admissionsApi.transition(activeTarget.id, 'Active', {
         classId: activeTarget.classId,
         dob: activeTarget.dob,
+        feeAmount: activeTarget.feeAmount ? Number(activeTarget.feeAmount) : undefined,
       });
       setActiveTarget(null);
       refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Transition failed');
+    }
+  }
+
+  function openContactEditor(a: Admission) {
+    setContactTarget({
+      id: a._id,
+      guardianName: a.guardianName ?? '',
+      guardianPhone: a.guardianPhone ?? '',
+      guardianEmail: a.guardianEmail ?? '',
+    });
+  }
+
+  async function saveContact(e: FormEvent) {
+    e.preventDefault();
+    if (!contactTarget) return;
+    setError(null);
+    try {
+      await admissionsApi.updateContact(contactTarget.id, {
+        guardianName: contactTarget.guardianName || undefined,
+        guardianPhone: contactTarget.guardianPhone || undefined,
+        guardianEmail: contactTarget.guardianEmail || undefined,
+      });
+      setContactTarget(null);
+      refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save contact details');
     }
   }
 
@@ -87,9 +122,35 @@ export default function AdmissionsPage() {
       </form>
       {error && <p className="error">{error}</p>}
 
+      {contactTarget && (
+        <form className="inline-form" onSubmit={saveContact}>
+          <span>Guardian contact:</span>
+          <input
+            placeholder="Guardian name"
+            value={contactTarget.guardianName}
+            onChange={(e) => setContactTarget({ ...contactTarget, guardianName: e.target.value })}
+          />
+          <input
+            placeholder="Phone"
+            value={contactTarget.guardianPhone}
+            onChange={(e) => setContactTarget({ ...contactTarget, guardianPhone: e.target.value })}
+          />
+          <input
+            type="email"
+            placeholder="Email"
+            value={contactTarget.guardianEmail}
+            onChange={(e) => setContactTarget({ ...contactTarget, guardianEmail: e.target.value })}
+          />
+          <button type="submit">Save contact</button>
+          <button type="button" onClick={() => setContactTarget(null)}>
+            Cancel
+          </button>
+        </form>
+      )}
+
       {activeTarget && (
         <form className="inline-form" onSubmit={confirmActiveTransition}>
-          <span>Enrolling — pick class and DOB:</span>
+          <span>Enrolling — class, DOB, and fee:</span>
           <select
             value={activeTarget.classId}
             onChange={(e) => setActiveTarget({ ...activeTarget, classId: e.target.value })}
@@ -110,6 +171,14 @@ export default function AdmissionsPage() {
             onChange={(e) => setActiveTarget({ ...activeTarget, dob: e.target.value })}
             required
           />
+          <input
+            type="number"
+            min={0}
+            placeholder="Fee (₦, optional)"
+            value={activeTarget.feeAmount}
+            onChange={(e) => setActiveTarget({ ...activeTarget, feeAmount: e.target.value })}
+            className="w-40"
+          />
           <button type="submit">Confirm enrollment</button>
           <button type="button" onClick={() => setActiveTarget(null)}>
             Cancel
@@ -122,6 +191,7 @@ export default function AdmissionsPage() {
           <thead>
             <tr>
               <th>Applicant</th>
+              <th>Guardian contact</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -130,6 +200,20 @@ export default function AdmissionsPage() {
             {list.map((a) => (
               <tr key={a._id}>
                 <td>{a.applicantName}</td>
+                <td>
+                  {a.guardianName || a.guardianPhone || a.guardianEmail ? (
+                    <div className="text-xs text-ink-soft">
+                      {a.guardianName && <div>{a.guardianName}</div>}
+                      {a.guardianPhone && <div>{a.guardianPhone}</div>}
+                      {a.guardianEmail && <div>{a.guardianEmail}</div>}
+                    </div>
+                  ) : (
+                    <span className="info-card-empty">Not on file</span>
+                  )}
+                  <button type="button" className="!bg-stone-100 !text-ink hover:!bg-stone-200 mt-1" onClick={() => openContactEditor(a)}>
+                    Edit
+                  </button>
+                </td>
                 <td>
                   <span className={`status-badge status-${a.status.replace(/\s+/g, '')}`}>{a.status}</span>
                 </td>

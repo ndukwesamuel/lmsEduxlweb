@@ -12,6 +12,8 @@ import UsersPage from './pages/UsersPage';
 import GradesPage from './pages/GradesPage';
 import TeacherDashboardPage from './pages/TeacherDashboardPage';
 import ParentDashboardPage from './pages/ParentDashboardPage';
+import FinancePage from './pages/FinancePage';
+import AnnouncementsPage from './pages/AnnouncementsPage';
 
 function HomeRedirect() {
   const { user } = useAuth();
@@ -33,6 +35,8 @@ export default function App() {
               <Route path="/classes" element={<ClassesPage />} />
               <Route path="/admissions" element={<AdmissionsPage />} />
               <Route path="/users" element={<UsersPage />} />
+              <Route path="/finance" element={<FinancePage />} />
+              <Route path="/announcements" element={<AnnouncementsPage />} />
             </Route>
             <Route element={<ProtectedRoute roles={['admin', 'teacher']} />}>
               <Route path="/attendance" element={<AttendancePage />} />

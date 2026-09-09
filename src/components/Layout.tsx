@@ -23,6 +23,8 @@ export default function Layout() {
           <NavLink to="/students">Students</NavLink>
           <NavLink to="/admissions">Admissions</NavLink>
           <NavLink to="/classes">Classes</NavLink>
+          <NavLink to="/finance">Finance</NavLink>
+          <NavLink to="/announcements">Announcements</NavLink>
           <NavLink to="/users">Users</NavLink>
         </>
       )}

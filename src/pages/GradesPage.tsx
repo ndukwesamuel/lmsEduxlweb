@@ -1,9 +1,10 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { classes as classesApi, grades as gradesApi, students as studentsApi } from '../api/resources';
-import { Grade, SchoolClass, Student } from '../api/types';
+import { classes as classesApi, grades as gradesApi, reportCards as reportCardsApi, students as studentsApi } from '../api/resources';
+import { ConductRating, Grade, SchoolClass, Student } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 
 const DEFAULT_TERM = '2026 Term 1';
+const CONDUCT_OPTIONS: ConductRating[] = ['Excellent', 'Good', 'Fair', 'Needs Improvement'];
 
 export default function GradesPage() {
   const { user } = useAuth();
@@ -13,10 +14,17 @@ export default function GradesPage() {
   const [term, setTerm] = useState(DEFAULT_TERM);
   const [subject, setSubject] = useState('');
   const [studentId, setStudentId] = useState('');
-  const [score, setScore] = useState('');
+  const [caScore, setCaScore] = useState('');
+  const [examScore, setExamScore] = useState('');
   const [entries, setEntries] = useState<Grade[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Conduct + comment (form teacher / admin only, one per student per term).
+  const [conductStudentId, setConductStudentId] = useState('');
+  const [conductRating, setConductRating] = useState<ConductRating>('Good');
+  const [teacherComment, setTeacherComment] = useState('');
+  const [conductSuccess, setConductSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     classesApi
@@ -29,6 +37,7 @@ export default function GradesPage() {
   }, []);
 
   const selectedClass = classList.find((c) => c._id === selectedClassId);
+  const isFormTeacher = !!(selectedClass && user && (user.role === 'admin' || selectedClass.formTeacherId === user.id));
 
   const subjectOptions = useMemo(() => {
     if (!selectedClass || !user) return [];
@@ -63,12 +72,38 @@ export default function GradesPage() {
     setError(null);
     setSuccess(null);
     try {
-      await gradesApi.post({ studentId, classId: selectedClassId, subject, term, score: Number(score) });
-      setScore('');
+      await gradesApi.post({
+        studentId,
+        classId: selectedClassId,
+        subject,
+        term,
+        caScore: Number(caScore),
+        examScore: Number(examScore),
+      });
+      setCaScore('');
+      setExamScore('');
       setSuccess('Grade saved.');
       refreshGrades();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save grade');
+    }
+  }
+
+  async function handleConductSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setConductSuccess(null);
+    try {
+      await reportCardsApi.setConduct({
+        studentId: conductStudentId,
+        classId: selectedClassId,
+        term,
+        conductRating,
+        teacherComment,
+      });
+      setConductSuccess('Conduct and comment saved.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save conduct/comment');
     }
   }
 
@@ -79,6 +114,7 @@ export default function GradesPage() {
   return (
     <div>
       <h1>Grades</h1>
+      <p className="page-subtitle">Subject-based result sheet — continuous assessment and exam scores, per subject, per term.</p>
 
       <div className="inline-form">
         <select value={selectedClassId} onChange={(e) => setSelectedClassId(e.target.value)}>
@@ -115,11 +151,21 @@ export default function GradesPage() {
           <input
             type="number"
             min={0}
-            max={100}
-            placeholder="Score (0-100)"
-            value={score}
-            onChange={(e) => setScore(e.target.value)}
-            style={{ width: '140px' }}
+            max={40}
+            placeholder="CA (0-40)"
+            value={caScore}
+            onChange={(e) => setCaScore(e.target.value)}
+            className="w-32"
+            required
+          />
+          <input
+            type="number"
+            min={0}
+            max={60}
+            placeholder="Exam (0-60)"
+            value={examScore}
+            onChange={(e) => setExamScore(e.target.value)}
+            className="w-32"
             required
           />
           <button type="submit">Save grade</button>
@@ -134,16 +180,27 @@ export default function GradesPage() {
             <tr>
               <th>Student</th>
               <th>Subject</th>
-              <th>Score</th>
+              <th>CA Score</th>
+              <th>Exam Score</th>
+              <th>Total</th>
               <th>Grade</th>
             </tr>
           </thead>
           <tbody>
+            {entries.length === 0 && (
+              <tr>
+                <td colSpan={6} className="empty-cell">
+                  No grades entered yet for this class and term.
+                </td>
+              </tr>
+            )}
             {entries.map((g) => (
               <tr key={g._id}>
                 <td>{studentName(g.studentId)}</td>
                 <td>{g.subject}</td>
-                <td>{g.score}</td>
+                <td>{g.caScore}</td>
+                <td>{g.examScore}</td>
+                <td>{g.total}</td>
                 <td>
                   <span className={`status-badge grade-${g.letterGrade}`}>{g.letterGrade}</span>
                 </td>
@@ -152,6 +209,40 @@ export default function GradesPage() {
           </tbody>
         </table>
       </div>
+
+      {isFormTeacher && (
+        <div className="card mt-8">
+          <h2>Conduct &amp; comment</h2>
+          <p className="page-subtitle">Set once per student per term — visible to the parent on the full result card.</p>
+          <form className="inline-form" onSubmit={handleConductSubmit}>
+            <select value={conductStudentId} onChange={(e) => setConductStudentId(e.target.value)} required>
+              <option value="" disabled>
+                Select student
+              </option>
+              {roster.map((s) => (
+                <option key={s._id} value={s._id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+            <select value={conductRating} onChange={(e) => setConductRating(e.target.value as ConductRating)}>
+              {CONDUCT_OPTIONS.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <input
+              value={teacherComment}
+              onChange={(e) => setTeacherComment(e.target.value)}
+              placeholder="Comment, e.g. 'Doing exceptionally well this term'"
+              className="flex-1 min-w-[240px]"
+            />
+            <button type="submit">Save</button>
+          </form>
+          {conductSuccess && <p className="success">{conductSuccess}</p>}
+        </div>
+      )}
     </div>
   );
 }
