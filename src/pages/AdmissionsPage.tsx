@@ -61,17 +61,20 @@ function GuardianFields({
   );
 }
 
-function RegistrationPanel({
+function RegistrationModal({
   admissionId,
+  registerOnSave,
   onClose,
-  onSaved,
+  onDone,
 }: {
   admissionId: string;
+  registerOnSave: boolean;
   onClose: () => void;
-  onSaved: () => void;
+  onDone: (message?: string) => void;
 }) {
   const [reg, setReg] = useState<RegistrationDetails | null>(null);
   const [applicantName, setApplicantName] = useState('');
+  const [status, setStatus] = useState<AdmissionStatus | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -80,6 +83,7 @@ function RegistrationPanel({
       .get(admissionId)
       .then((a) => {
         setApplicantName(a.applicantName);
+        setStatus(a.status);
         setReg({
           father: emptyGuardian,
           mother: emptyGuardian,
@@ -99,7 +103,8 @@ function RegistrationPanel({
       setErr(`${k === 'passportPhoto' ? 'Passport photo' : 'Birth certificate'} must be under 1.5 MB`);
       return;
     }
-    const okType = k === 'passportPhoto' ? file.type.startsWith('image/') : file.type.startsWith('image/') || file.type === 'application/pdf';
+    const okType =
+      k === 'passportPhoto' ? file.type.startsWith('image/') : file.type.startsWith('image/') || file.type === 'application/pdf';
     if (!okType) {
       setErr(k === 'passportPhoto' ? 'Passport photo must be an image' : 'Birth certificate must be an image or PDF');
       return;
@@ -113,8 +118,17 @@ function RegistrationPanel({
     setSaving(true);
     setErr(null);
     try {
-      await admissionsApi.submitRegistration(admissionId, reg);
-      onSaved();
+      const saved = await admissionsApi.submitRegistration(admissionId, reg);
+      if (registerOnSave) {
+        const registered = await admissionsApi.transition(admissionId, 'Registered');
+        onDone(`Registered — registration number ${registered.registration?.registrationNumber ?? ''}`);
+      } else {
+        onDone(
+          saved.registration?.registrationNumber
+            ? `Registration form saved (Reg. No. ${saved.registration.registrationNumber})`
+            : 'Registration form saved'
+        );
+      }
       onClose();
     } catch (e2) {
       setErr(e2 instanceof Error ? e2.message : 'Failed to save registration');
@@ -123,86 +137,114 @@ function RegistrationPanel({
     }
   }
 
-  if (!reg) {
-    return (
-      <div className="card mt-3">
-        <p className="info-card-empty">{err ?? 'Loading registration form…'}</p>
-      </div>
-    );
-  }
-
   return (
-    <form className="card mt-3 flex flex-col gap-4" onSubmit={submit}>
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-display font-semibold">Registration form — {applicantName}</h2>
-        {reg.registrationNumber && (
-          <span className="status-badge status-Registered">Reg No. {reg.registrationNumber}</span>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-2 items-end">
-        <label className="text-xs text-ink-soft flex flex-col gap-1">
-          Date of birth
-          <input type="date" value={reg.dob ? reg.dob.slice(0, 10) : ''} onChange={(e) => set('dob', e.target.value)} />
-        </label>
-        <label className="text-xs text-ink-soft flex flex-col gap-1">
-          Gender
-          <select value={reg.gender ?? ''} onChange={(e) => set('gender', e.target.value || undefined)}>
-            <option value="">—</option>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-          </select>
-        </label>
-        <label className="text-xs text-ink-soft flex flex-col gap-1">
-          Place of birth
-          <input value={reg.placeOfBirth ?? ''} onChange={(e) => set('placeOfBirth', e.target.value)} />
-        </label>
-        <label className="text-xs text-ink-soft flex flex-col gap-1">
-          Nationality
-          <input value={reg.nationality ?? ''} onChange={(e) => set('nationality', e.target.value)} />
-        </label>
-        <label className="text-xs text-ink-soft flex flex-col gap-1">
-          Health issues (if any)
-          <input value={reg.healthIssues ?? ''} onChange={(e) => set('healthIssues', e.target.value)} />
-        </label>
-        <label className="text-xs text-ink-soft flex flex-col gap-1 sm:col-span-2 lg:col-span-3">
-          Residential address
-          <input value={reg.residentialAddress ?? ''} onChange={(e) => set('residentialAddress', e.target.value)} />
-        </label>
-      </div>
-
-      <GuardianFields label="Father" value={reg.father ?? emptyGuardian} onChange={(v) => set('father', v)} />
-      <GuardianFields label="Mother" value={reg.mother ?? emptyGuardian} onChange={(v) => set('mother', v)} />
-      <GuardianFields label="Guardian" value={reg.guardian ?? emptyGuardian} onChange={(v) => set('guardian', v)} withRelationship />
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Passport photograph</span>
-          <input type="file" accept="image/*" onChange={(e) => handleFile('passportPhoto', e.target.files?.[0])} />
-          {reg.passportPhoto && <img src={reg.passportPhoto} alt="passport preview" className="h-24 w-24 object-cover rounded-xl2 border border-stone-200" />}
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Birth certificate</span>
-          <input type="file" accept="image/*,application/pdf" onChange={(e) => handleFile('birthCertificate', e.target.files?.[0])} />
-          {reg.birthCertificate && (
-            <span className="text-xs text-brand-700">
-              {reg.birthCertificate.startsWith('data:application/pdf') ? 'PDF attached' : 'Image attached'}
-            </span>
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-3 sm:p-6"
+      onClick={onClose}
+    >
+      <form
+        className="card w-full max-w-3xl my-4 flex flex-col gap-4"
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={submit}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-display font-semibold">Registration form</h2>
+            <p className="info-card-sub">
+              {applicantName || '…'}
+              {status && <span className={`status-badge status-${status.replace(/\s+/g, '')} ml-2`}>{status}</span>}
+            </p>
+          </div>
+          {reg?.registrationNumber && (
+            <span className="status-badge status-Registered">Reg. No. {reg.registrationNumber}</span>
           )}
         </div>
-      </div>
 
-      {err && <p className="error">{err}</p>}
+        {!reg ? (
+          <p className="info-card-empty">{err ?? 'Loading…'}</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-2">
+              <label className="text-xs text-ink-soft flex flex-col gap-1">
+                Date of birth
+                <input type="date" value={reg.dob ? reg.dob.slice(0, 10) : ''} onChange={(e) => set('dob', e.target.value)} />
+              </label>
+              <label className="text-xs text-ink-soft flex flex-col gap-1">
+                Gender
+                <select value={reg.gender ?? ''} onChange={(e) => set('gender', e.target.value || undefined)}>
+                  <option value="">—</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              </label>
+              <label className="text-xs text-ink-soft flex flex-col gap-1">
+                Place of birth
+                <input value={reg.placeOfBirth ?? ''} onChange={(e) => set('placeOfBirth', e.target.value)} />
+              </label>
+              <label className="text-xs text-ink-soft flex flex-col gap-1">
+                Nationality
+                <input value={reg.nationality ?? ''} onChange={(e) => set('nationality', e.target.value)} />
+              </label>
+              <label className="text-xs text-ink-soft flex flex-col gap-1">
+                Health issues (if any)
+                <input value={reg.healthIssues ?? ''} onChange={(e) => set('healthIssues', e.target.value)} />
+              </label>
+              <label className="text-xs text-ink-soft flex flex-col gap-1 sm:col-span-2 lg:col-span-3">
+                Residential address
+                <input value={reg.residentialAddress ?? ''} onChange={(e) => set('residentialAddress', e.target.value)} />
+              </label>
+            </div>
 
-      <div className="flex gap-2">
-        <button type="submit" disabled={saving}>
-          {saving ? 'Saving…' : 'Save registration'}
-        </button>
-        <button type="button" className="!bg-stone-100 !text-ink hover:!bg-stone-200" onClick={onClose}>
-          Close
-        </button>
-      </div>
-    </form>
+            <GuardianFields label="Father" value={reg.father ?? emptyGuardian} onChange={(v) => set('father', v)} />
+            <GuardianFields label="Mother" value={reg.mother ?? emptyGuardian} onChange={(v) => set('mother', v)} />
+            <GuardianFields
+              label="Guardian"
+              value={reg.guardian ?? emptyGuardian}
+              onChange={(v) => set('guardian', v)}
+              withRelationship
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Passport photograph</span>
+                <input type="file" accept="image/*" onChange={(e) => handleFile('passportPhoto', e.target.files?.[0])} />
+                {reg.passportPhoto && (
+                  <img
+                    src={reg.passportPhoto}
+                    alt="passport preview"
+                    className="h-24 w-24 object-cover rounded-xl2 border border-stone-200"
+                  />
+                )}
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Birth certificate</span>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={(e) => handleFile('birthCertificate', e.target.files?.[0])}
+                />
+                {reg.birthCertificate && (
+                  <span className="text-xs text-brand-700">
+                    {reg.birthCertificate.startsWith('data:application/pdf') ? 'PDF attached' : 'Image attached'}
+                  </span>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {err && <p className="error">{err}</p>}
+
+        <div className="flex gap-2">
+          <button type="submit" disabled={saving || !reg}>
+            {saving ? 'Saving…' : registerOnSave ? 'Save & register applicant' : 'Save registration'}
+          </button>
+          <button type="button" className="!bg-stone-100 !text-ink hover:!bg-stone-200" onClick={onClose}>
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -211,7 +253,8 @@ export default function AdmissionsPage() {
   const [classList, setClassList] = useState<SchoolClass[]>([]);
   const [applicantName, setApplicantName] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [regTargetId, setRegTargetId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [regTarget, setRegTarget] = useState<{ id: string; registerOnSave: boolean } | null>(null);
   const [activeTarget, setActiveTarget] = useState<{ id: string; classId: string; dob: string; feeAmount: string } | null>(
     null
   );
@@ -245,8 +288,14 @@ export default function AdmissionsPage() {
 
   async function handleTransition(admission: Admission, newStatus: AdmissionStatus) {
     setError(null);
+    setNotice(null);
     if (newStatus === 'Active') {
       setActiveTarget({ id: admission._id, classId: '', dob: '', feeAmount: '' });
+      return;
+    }
+    if (newStatus === 'Registered') {
+      // The registration form IS the registration step — open it.
+      setRegTarget({ id: admission._id, registerOnSave: true });
       return;
     }
     try {
@@ -314,6 +363,7 @@ export default function AdmissionsPage() {
         <button type="submit">New applicant</button>
       </form>
       {error && <p className="error">{error}</p>}
+      {notice && <p className="text-sm text-brand-700 font-medium mb-2">{notice}</p>}
 
       {contactTarget && (
         <form className="inline-form" onSubmit={saveContact}>
@@ -379,8 +429,16 @@ export default function AdmissionsPage() {
         </form>
       )}
 
-      {regTargetId && (
-        <RegistrationPanel admissionId={regTargetId} onClose={() => setRegTargetId(null)} onSaved={refresh} />
+      {regTarget && (
+        <RegistrationModal
+          admissionId={regTarget.id}
+          registerOnSave={regTarget.registerOnSave}
+          onClose={() => setRegTarget(null)}
+          onDone={(message) => {
+            if (message) setNotice(message);
+            refresh();
+          }}
+        />
       )}
 
       <div className="table-scroll">
@@ -427,9 +485,9 @@ export default function AdmissionsPage() {
                     <button
                       type="button"
                       className="!bg-brand-50 !text-brand-700 hover:!bg-brand-100"
-                      onClick={() => setRegTargetId(a._id)}
+                      onClick={() => setRegTarget({ id: a._id, registerOnSave: false })}
                     >
-                      Registration form
+                      {a.registration?.submittedAt ? 'View / edit form' : 'Registration form'}
                     </button>
                     {TRANSITIONS[a.status].map((next) => (
                       <button key={next} onClick={() => handleTransition(a, next)}>
