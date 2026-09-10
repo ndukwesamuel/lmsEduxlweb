@@ -25,6 +25,32 @@ export interface StatusHistoryEntry {
   changedBy: string;
 }
 
+export interface GuardianDetails {
+  name?: string;
+  profession?: string;
+  lga?: string;
+  nationality?: string;
+  phone?: string;
+  email?: string;
+  relationship?: string;
+}
+
+export interface RegistrationDetails {
+  dob?: string;
+  gender?: 'Male' | 'Female';
+  placeOfBirth?: string;
+  nationality?: string;
+  healthIssues?: string;
+  residentialAddress?: string;
+  father?: GuardianDetails;
+  mother?: GuardianDetails;
+  guardian?: GuardianDetails;
+  passportPhoto?: string;
+  birthCertificate?: string;
+  registrationNumber?: string;
+  submittedAt?: string;
+}
+
 export interface Admission {
   _id: string;
   applicantName: string;
@@ -33,6 +59,7 @@ export interface Admission {
   guardianName?: string;
   guardianPhone?: string;
   guardianEmail?: string;
+  registration?: RegistrationDetails;
   createdAt: string;
 }
 
@@ -159,9 +186,18 @@ export interface ReportCard {
   adminRemark?: string;
 }
 
+export interface ResultRelease {
+  _id: string;
+  classId: string;
+  term: string;
+  releasedBy: string;
+  releasedAt: string;
+}
+
 export interface FullResultCard {
   student: { id: string; name: string; classId: string };
   term: string;
+  released: boolean;
   subjects: { subject: string; caScore: number; examScore: number; total: number; letterGrade: string }[];
   conductRating: ConductRating | null;
   teacherComment: string | null;

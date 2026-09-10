@@ -46,7 +46,7 @@ function ResultCardPanel({ studentId }: { studentId: string }) {
             <div>
               <div className="stat-label">Class Conduct</div>
               <div className="stat-value-sm">
-                {card.conductRating ? (
+                {card.released && card.conductRating ? (
                   <span className={`status-badge conduct-${card.conductRating.replace(' ', '')}`}>{card.conductRating}</span>
                 ) : (
                   '—'
@@ -55,18 +55,28 @@ function ResultCardPanel({ studentId }: { studentId: string }) {
             </div>
           </div>
 
-          {card.teacherComment && (
+          {!card.released && (
+            <div className="announcement-banner">
+              <span className="announcement-banner-title">Results not yet released</span>
+              <span className="announcement-banner-message">
+                The school has not released academic results for this class and term. Attendance is shown above; grades and
+                comments will appear here once the school makes them available.
+              </span>
+            </div>
+          )}
+
+          {card.released && card.teacherComment && (
             <p className="info-card-sub mb-1">
               <strong className="text-ink">Teacher comment:</strong> &ldquo;{card.teacherComment}&rdquo;
             </p>
           )}
-          {card.adminRemark && (
+          {card.released && card.adminRemark && (
             <p className="info-card-sub mb-3">
               <strong className="text-ink">Admin remark:</strong> &ldquo;{card.adminRemark}&rdquo;
             </p>
           )}
 
-          {card.subjects.length === 0 ? (
+          {!card.released ? null : card.subjects.length === 0 ? (
             <p className="info-card-empty">No subject results for this term yet.</p>
           ) : (
             <div className="table-scroll">

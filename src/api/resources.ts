@@ -14,7 +14,9 @@ import {
   FullResultCard,
   Grade,
   ParentDashboard,
+  RegistrationDetails,
   ReportCard,
+  ResultRelease,
   SchoolClass,
   Student,
   TeacherDashboard,
@@ -49,11 +51,20 @@ export const classes = {
 
 export const admissions = {
   list: () => api.get<Admission[]>('/admissions'),
+  get: (id: string) => api.get<Admission>(`/admissions/${id}`),
   create: (applicantName: string) => api.post<Admission>('/admissions', { applicantName }),
   updateContact: (id: string, data: { guardianName?: string; guardianPhone?: string; guardianEmail?: string }) =>
     api.patch<Admission>(`/admissions/${id}`, data),
+  submitRegistration: (id: string, data: RegistrationDetails) =>
+    api.patch<Admission>(`/admissions/${id}/registration`, data),
   transition: (id: string, newStatus: AdmissionStatus, extra?: { classId?: string; dob?: string; feeAmount?: number }) =>
     api.patch<Admission>(`/admissions/${id}/status`, { newStatus, ...extra }),
+};
+
+export const resultReleases = {
+  list: () => api.get<ResultRelease[]>('/result-releases'),
+  release: (classId: string, term: string) => api.post<ResultRelease>('/result-releases', { classId, term }),
+  unrelease: (classId: string, term: string) => api.delete<void>('/result-releases', { classId, term }),
 };
 
 export const attendance = {

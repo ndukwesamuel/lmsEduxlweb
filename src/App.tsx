@@ -14,6 +14,7 @@ import TeacherDashboardPage from './pages/TeacherDashboardPage';
 import ParentDashboardPage from './pages/ParentDashboardPage';
 import FinancePage from './pages/FinancePage';
 import AnnouncementsPage from './pages/AnnouncementsPage';
+import ResultsReleasePage from './pages/ResultsReleasePage';
 
 function HomeRedirect() {
   const { user } = useAuth();
@@ -37,6 +38,7 @@ export default function App() {
               <Route path="/users" element={<UsersPage />} />
               <Route path="/finance" element={<FinancePage />} />
               <Route path="/announcements" element={<AnnouncementsPage />} />
+              <Route path="/results" element={<ResultsReleasePage />} />
             </Route>
             <Route element={<ProtectedRoute roles={['admin', 'teacher']} />}>
               <Route path="/attendance" element={<AttendancePage />} />
