@@ -140,7 +140,7 @@ function RegistrationPanel({
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-2 items-end">
         <label className="text-xs text-ink-soft flex flex-col gap-1">
           Date of birth
           <input type="date" value={reg.dob ? reg.dob.slice(0, 10) : ''} onChange={(e) => set('dob', e.target.value)} />
@@ -153,19 +153,22 @@ function RegistrationPanel({
             <option value="Female">Female</option>
           </select>
         </label>
-        <input placeholder="Place of birth" value={reg.placeOfBirth ?? ''} onChange={(e) => set('placeOfBirth', e.target.value)} />
-        <input placeholder="Nationality" value={reg.nationality ?? ''} onChange={(e) => set('nationality', e.target.value)} />
-        <input
-          placeholder="Health issues (if any)"
-          value={reg.healthIssues ?? ''}
-          onChange={(e) => set('healthIssues', e.target.value)}
-        />
-        <input
-          className="sm:col-span-2 lg:col-span-3"
-          placeholder="Residential address"
-          value={reg.residentialAddress ?? ''}
-          onChange={(e) => set('residentialAddress', e.target.value)}
-        />
+        <label className="text-xs text-ink-soft flex flex-col gap-1">
+          Place of birth
+          <input value={reg.placeOfBirth ?? ''} onChange={(e) => set('placeOfBirth', e.target.value)} />
+        </label>
+        <label className="text-xs text-ink-soft flex flex-col gap-1">
+          Nationality
+          <input value={reg.nationality ?? ''} onChange={(e) => set('nationality', e.target.value)} />
+        </label>
+        <label className="text-xs text-ink-soft flex flex-col gap-1">
+          Health issues (if any)
+          <input value={reg.healthIssues ?? ''} onChange={(e) => set('healthIssues', e.target.value)} />
+        </label>
+        <label className="text-xs text-ink-soft flex flex-col gap-1 sm:col-span-2 lg:col-span-3">
+          Residential address
+          <input value={reg.residentialAddress ?? ''} onChange={(e) => set('residentialAddress', e.target.value)} />
+        </label>
       </div>
 
       <GuardianFields label="Father" value={reg.father ?? emptyGuardian} onChange={(v) => set('father', v)} />
