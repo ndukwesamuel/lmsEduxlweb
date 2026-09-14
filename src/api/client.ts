@@ -1,4 +1,7 @@
-const BASE_URL = 'https://lmsedulxbackend-production-3ffa.up.railway.app/api/v1';
+// const BASE_URL = 'https://lmsedulxbackend-production-3ffa.up.railway.app/api/v1';
+
+
+const BASE_URL = 'https://lmsedulxbackend-production-7eed.up.railway.app/api/v1';  /// this is from peter github
 
 export class ApiError extends Error {
   status: number;
