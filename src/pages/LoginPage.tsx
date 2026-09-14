@@ -8,7 +8,6 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [schoolId, setSchoolId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -17,7 +16,7 @@ export default function LoginPage() {
     setError(null);
     setSubmitting(true);
     try {
-      await login(email, password, schoolId);
+      await login(email, password);
       navigate('/');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Login failed');
@@ -38,12 +37,8 @@ export default function LoginPage() {
           <h1>Welcome back</h1>
           <p className="auth-subtitle">Sign in with the credentials your school admin gave you.</p>
           <label>
-            School ID
-            <input value={schoolId} onChange={(e) => setSchoolId(e.target.value)} placeholder="e.g. 6a9ef9dc..." required />
-          </label>
-          <label>
             Email
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@school.test" required />
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@school.test" required autoFocus />
           </label>
           <label>
             Password

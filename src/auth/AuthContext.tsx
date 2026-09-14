@@ -5,7 +5,7 @@ import { login as loginRequest } from '../api/resources';
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string, schoolId: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -21,8 +21,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
-  async function login(email: string, password: string, schoolId: string) {
-    const { token, user: loggedInUser } = await loginRequest(email, password, schoolId);
+  async function login(email: string, password: string) {
+    const { token, user: loggedInUser } = await loginRequest(email, password);
     localStorage.setItem('smis_token', token);
     localStorage.setItem('smis_user', JSON.stringify(loggedInUser));
     setUser(loggedInUser);

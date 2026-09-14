@@ -24,8 +24,8 @@ import {
   UserRole,
 } from './types';
 
-export function login(email: string, password: string, schoolId: string) {
-  return api.post<{ token: string; user: AuthUser }>('/auth/login', { email, password, schoolId });
+export function login(email: string, password: string) {
+  return api.post<{ token: string; user: AuthUser }>('/auth/login', { email, password });
 }
 
 export const users = {
