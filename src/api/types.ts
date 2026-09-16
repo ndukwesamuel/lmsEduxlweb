@@ -51,6 +51,8 @@ export interface RegistrationDetails {
   submittedAt?: string;
 }
 
+export type AdmissionSource = 'admin' | 'public';
+
 export interface Admission {
   _id: string;
   applicantName: string;
@@ -60,7 +62,15 @@ export interface Admission {
   guardianPhone?: string;
   guardianEmail?: string;
   registration?: RegistrationDetails;
+  source: AdmissionSource;
   createdAt: string;
+}
+
+export interface School {
+  _id: string;
+  name: string;
+  slug: string;
+  code: string;
 }
 
 export interface SubjectTeacher {

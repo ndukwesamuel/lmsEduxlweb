@@ -15,6 +15,7 @@ import ParentDashboardPage from './pages/ParentDashboardPage';
 import FinancePage from './pages/FinancePage';
 import AnnouncementsPage from './pages/AnnouncementsPage';
 import ResultsReleasePage from './pages/ResultsReleasePage';
+import PublicApplyPage from './pages/PublicApplyPage';
 
 function HomeRedirect() {
   const { user } = useAuth();
@@ -28,6 +29,7 @@ export default function App() {
     <AuthProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/apply/:slug" element={<PublicApplyPage />} />
         <Route element={<ProtectedRoute />}>
           <Route element={<Layout />}>
             <Route path="/" element={<HomeRedirect />} />

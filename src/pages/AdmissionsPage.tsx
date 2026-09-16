@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { admissions as admissionsApi, classes as classesApi } from '../api/resources';
+import { admissions as admissionsApi, classes as classesApi, school as schoolApi } from '../api/resources';
 import { Admission, AdmissionStatus, GuardianDetails, RegistrationDetails, SchoolClass } from '../api/types';
 
 const TRANSITIONS: Record<AdmissionStatus, AdmissionStatus[]> = {
@@ -264,6 +264,8 @@ export default function AdmissionsPage() {
     guardianPhone: string;
     guardianEmail: string;
   } | null>(null);
+  const [applyLink, setApplyLink] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   function refresh() {
     admissionsApi.list().then(setList).catch((err) => setError(err.message));
@@ -272,7 +274,22 @@ export default function AdmissionsPage() {
   useEffect(() => {
     refresh();
     classesApi.list().then(setClassList).catch((err) => setError(err.message));
+    schoolApi
+      .get()
+      .then((s) => setApplyLink(`${window.location.origin}/apply/${s.slug}`))
+      .catch(() => {});
   }, []);
+
+  async function copyApplyLink() {
+    if (!applyLink) return;
+    try {
+      await navigator.clipboard.writeText(applyLink);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2500);
+    } catch {
+      setError('Could not copy the link — copy it manually instead.');
+    }
+  }
 
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
@@ -361,7 +378,18 @@ export default function AdmissionsPage() {
           required
         />
         <button type="submit">New applicant</button>
+        {applyLink && (
+          <button type="button" className="!bg-brand-50 !text-brand-700 hover:!bg-brand-100" onClick={copyApplyLink}>
+            {linkCopied ? 'Link copied!' : 'Copy application link'}
+          </button>
+        )}
       </form>
+      {applyLink && (
+        <p className="info-card-sub mb-2">
+          Share this with intending parents so they can apply themselves:{' '}
+          <span className="text-xs font-mono text-ink">{applyLink}</span>
+        </p>
+      )}
       {error && <p className="error">{error}</p>}
       {notice && <p className="text-sm text-brand-700 font-medium mb-2">{notice}</p>}
 
@@ -449,6 +477,7 @@ export default function AdmissionsPage() {
               <th>Reg. no.</th>
               <th>Guardian contact</th>
               <th>Status</th>
+              <th>Source</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -479,6 +508,15 @@ export default function AdmissionsPage() {
                 </td>
                 <td>
                   <span className={`status-badge status-${a.status.replace(/\s+/g, '')}`}>{a.status}</span>
+                </td>
+                <td>
+                  {a.source === 'public' ? (
+                    <span className="role-chip" title="Submitted by the parent via the public application link">
+                      Public
+                    </span>
+                  ) : (
+                    <span className="info-card-empty">Admin</span>
+                  )}
                 </td>
                 <td>
                   <div className="flex flex-col sm:flex-row flex-wrap gap-1.5">

@@ -17,6 +17,7 @@ import {
   RegistrationDetails,
   ReportCard,
   ResultRelease,
+  School,
   SchoolClass,
   Student,
   TeacherDashboard,
@@ -27,6 +28,18 @@ import {
 export function login(email: string, password: string) {
   return api.post<{ token: string; user: AuthUser }>('/auth/login', { email, password });
 }
+
+export const school = {
+  get: () => api.get<School>('/school'),
+};
+
+// Unauthenticated endpoints for the public /apply/:slug page — no token is
+// attached (there isn't one), the backend resolves the school from :slug.
+export const publicApply = {
+  getSchool: (slug: string) => api.get<{ name: string }>(`/public/schools/${encodeURIComponent(slug)}`),
+  submit: (slug: string, data: Record<string, unknown>) =>
+    api.post<{ ok: true; applicantName: string }>(`/public/schools/${encodeURIComponent(slug)}/admissions`, data),
+};
 
 export const users = {
   listTeachers: () => api.get<UserAccount[]>('/users?role=teacher'),
