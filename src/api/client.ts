@@ -1,7 +1,6 @@
-// const BASE_URL = 'https://lmsedulxbackend-production-3ffa.up.railway.app/api/v1';
 
 
-const BASE_URL = 'https://lmsedulxbackend-production-7eed.up.railway.app/api/v1';  /// this is from peter github
+const BASE_URL = "https://prod-main-lmsedulxbackend-64c8fb-00zethmcqhn.compute.instacloud-edge.com/api/v1" //'https://lmsedulxbackend-production-7eed.up.railway.app/api/v1';  /// this is from peter github
 
 export class ApiError extends Error {
   status: number;
