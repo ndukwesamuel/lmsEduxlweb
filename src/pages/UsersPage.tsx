@@ -35,6 +35,45 @@ export default function UsersPage() {
     }
   }
 
+  async function handleRemove(user: UserAccount) {
+    const label = user.role === 'teacher' ? 'teacher' : 'parent';
+    const note =
+      user.role === 'parent' ? ' They will be unlinked from their children.' : ' They will be removed from any subjects they teach.';
+    if (!window.confirm(`Remove ${label} ${user.name}? They will no longer be able to log in.${note}`)) return;
+    setError(null);
+    setSuccess(null);
+    try {
+      await usersApi.remove(user._id);
+      setSuccess(`${user.name} has been removed.`);
+      refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove account');
+    }
+  }
+
+  function renderRows(list: UserAccount[]) {
+    if (list.length === 0) {
+      return (
+        <tr>
+          <td colSpan={3} className="empty-cell">
+            None yet.
+          </td>
+        </tr>
+      );
+    }
+    return list.map((u) => (
+      <tr key={u._id}>
+        <td>{u.name}</td>
+        <td>{u.email}</td>
+        <td>
+          <button type="button" onClick={() => handleRemove(u)}>
+            Remove
+          </button>
+        </td>
+      </tr>
+    ));
+  }
+
   return (
     <div>
       <h1>Users</h1>
@@ -65,16 +104,10 @@ export default function UsersPage() {
             <tr>
               <th>Name</th>
               <th>Email</th>
+              <th></th>
             </tr>
           </thead>
-          <tbody>
-            {teachers.map((t) => (
-              <tr key={t._id}>
-                <td>{t.name}</td>
-                <td>{t.email}</td>
-              </tr>
-            ))}
-          </tbody>
+          <tbody>{renderRows(teachers)}</tbody>
         </table>
       </div>
 
@@ -85,16 +118,10 @@ export default function UsersPage() {
             <tr>
               <th>Name</th>
               <th>Email</th>
+              <th></th>
             </tr>
           </thead>
-          <tbody>
-            {parents.map((p) => (
-              <tr key={p._id}>
-                <td>{p.name}</td>
-                <td>{p.email}</td>
-              </tr>
-            ))}
-          </tbody>
+          <tbody>{renderRows(parents)}</tbody>
         </table>
       </div>
     </div>

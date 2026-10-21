@@ -44,9 +44,16 @@ export default function StudentsPage() {
     }
   }
 
-  async function handleWithdraw(id: string) {
-    await studentsApi.remove(id);
-    refresh();
+  async function handleWithdraw(student: Student) {
+    if (!window.confirm(`Remove ${student.name} from the student list? Their past records are kept.`)) return;
+    setError(null);
+    try {
+      await studentsApi.remove(student._id);
+      if (viewingId === student._id) setViewingId(null);
+      refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove student');
+    }
   }
 
   async function handleLinkGuardian(studentId: string, guardianUserId: string) {
@@ -155,7 +162,11 @@ export default function StudentsPage() {
                     <button type="button" className="!bg-stone-100 !text-ink hover:!bg-stone-200" onClick={() => openResultCard(s._id)}>
                       Result card
                     </button>
-                    {s.isActive && <button onClick={() => handleWithdraw(s._id)}>Deactivate</button>}
+                    {s.isActive && (
+                      <button type="button" onClick={() => handleWithdraw(s)}>
+                        Remove
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

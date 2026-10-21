@@ -31,6 +31,16 @@ export default function ClassesPage() {
     }
   }
 
+  async function handleChangeFormTeacher(classId: string, newTeacherId: string) {
+    setError(null);
+    try {
+      await classesApi.setFormTeacher(classId, newTeacherId);
+      refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to change form teacher');
+    }
+  }
+
   function teacherNameFor(id: string) {
     return teachers.find((t) => t._id === id)?.name ?? id;
   }
@@ -71,7 +81,20 @@ export default function ClassesPage() {
               <tr key={c._id}>
                 <td>{c.name}</td>
                 <td>{c.term}</td>
-                <td>{teacherNameFor(c.formTeacherId)}</td>
+                <td>
+                  <select value={c.formTeacherId} onChange={(e) => handleChangeFormTeacher(c._id, e.target.value)}>
+                    {!teachers.some((t) => t._id === c.formTeacherId) && (
+                      <option value={c.formTeacherId} disabled>
+                        Select form teacher
+                      </option>
+                    )}
+                    {teachers.map((t) => (
+                      <option key={t._id} value={t._id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                </td>
                 <td>
                   {c.subjectTeachers.length === 0
                     ? '—'

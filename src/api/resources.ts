@@ -46,6 +46,7 @@ export const users = {
   listParents: () => api.get<UserAccount[]>('/users?role=parent'),
   create: (data: { name: string; email: string; password: string; role: Extract<UserRole, 'teacher' | 'parent'> }) =>
     api.post<UserAccount>('/users', data),
+  remove: (id: string) => api.delete<UserAccount>(`/users/${id}`),
 };
 
 export const students = {
@@ -60,6 +61,7 @@ export const classes = {
   list: () => api.get<SchoolClass[]>('/classes'),
   create: (data: { name: string; term: string; formTeacherId: string; subjectTeachers?: { teacherId: string; subject: string }[] }) =>
     api.post<SchoolClass>('/classes', data),
+  setFormTeacher: (id: string, formTeacherId: string) => api.patch<SchoolClass>(`/classes/${id}`, { formTeacherId }),
 };
 
 export const admissions = {
