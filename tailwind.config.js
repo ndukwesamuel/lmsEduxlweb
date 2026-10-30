@@ -20,6 +20,7 @@ export default {
     'grade-B',
     'grade-C',
     'grade-D',
+    'grade-E',
     'grade-F',
   ],
   theme: {

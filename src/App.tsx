@@ -17,6 +17,8 @@ import AnnouncementsPage from './pages/AnnouncementsPage';
 import ResultsReleasePage from './pages/ResultsReleasePage';
 import PublicApplyPage from './pages/PublicApplyPage';
 import PlatformSchoolsPage from './pages/PlatformSchoolsPage';
+import SubjectsPage from './pages/SubjectsPage';
+import SettingsPage from './pages/SettingsPage';
 
 function HomeRedirect() {
   const { user } = useAuth();
@@ -38,6 +40,8 @@ export default function App() {
             <Route element={<ProtectedRoute roles={['admin']} />}>
               <Route path="/students" element={<StudentsPage />} />
               <Route path="/classes" element={<ClassesPage />} />
+              <Route path="/subjects" element={<SubjectsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
               <Route path="/admissions" element={<AdmissionsPage />} />
               <Route path="/users" element={<UsersPage />} />
               <Route path="/finance" element={<FinancePage />} />

@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { classes as classesApi, resultReleases as releasesApi } from '../api/resources';
 import { ResultRelease, SchoolClass } from '../api/types';
+import TermSelect from '../components/TermSelect';
+import { useSchool } from '../hooks/useSchool';
 
 export default function ResultsReleasePage() {
+  const { school } = useSchool();
   const [classList, setClassList] = useState<SchoolClass[]>([]);
   const [releases, setReleases] = useState<ResultRelease[]>([]);
   const [terms, setTerms] = useState<Record<string, string>>({});
@@ -16,10 +19,7 @@ export default function ResultsReleasePage() {
   useEffect(() => {
     classesApi
       .list()
-      .then((cs) => {
-        setClassList(cs);
-        setTerms(Object.fromEntries(cs.map((c) => [c._id, c.term])));
-      })
+      .then(setClassList)
       .catch((e) => setError(e.message));
     refresh();
   }, []);
@@ -67,17 +67,18 @@ export default function ResultsReleasePage() {
             </thead>
             <tbody>
               {classList.map((c) => {
-                const term = terms[c._id] ?? c.term;
+                const term = terms[c._id] ?? school?.currentTerm ?? '';
                 const key = `${c._id}::${term}`;
                 const released = releasedSet.has(key);
                 return (
                   <tr key={c._id}>
                     <td>{c.name}</td>
                     <td>
-                      <input
+                      <TermSelect
+                        school={school}
                         value={term}
-                        onChange={(e) => setTerms({ ...terms, [c._id]: e.target.value })}
-                        className="!py-1.5 text-xs w-40"
+                        onChange={(t) => setTerms({ ...terms, [c._id]: t })}
+                        className="!py-1.5 text-xs"
                       />
                     </td>
                     <td>
@@ -91,7 +92,7 @@ export default function ResultsReleasePage() {
                       <button
                         type="button"
                         className={released ? '!bg-stone-100 !text-ink hover:!bg-stone-200' : ''}
-                        disabled={busy === key}
+                        disabled={busy === key || !term}
                         onClick={() => toggle(c._id, term, released)}
                       >
                         {busy === key ? '…' : released ? 'Unrelease' : 'Release'}

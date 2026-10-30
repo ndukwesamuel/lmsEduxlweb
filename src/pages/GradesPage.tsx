@@ -1,18 +1,28 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { classes as classesApi, grades as gradesApi, reportCards as reportCardsApi, students as studentsApi } from '../api/resources';
-import { ConductRating, Grade, SchoolClass, Student } from '../api/types';
+import { Link } from 'react-router-dom';
+import {
+  classes as classesApi,
+  grades as gradesApi,
+  reportCards as reportCardsApi,
+  students as studentsApi,
+  subjects as subjectsApi,
+} from '../api/resources';
+import { ConductRating, Grade, SchoolClass, Student, Subject } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import TermSelect from '../components/TermSelect';
+import { useSchool } from '../hooks/useSchool';
 
-const DEFAULT_TERM = '2026 Term 1';
 const CONDUCT_OPTIONS: ConductRating[] = ['Excellent', 'Good', 'Fair', 'Needs Improvement'];
 
 export default function GradesPage() {
   const { user } = useAuth();
+  const { school } = useSchool();
   const [classList, setClassList] = useState<SchoolClass[]>([]);
+  const [subjectList, setSubjectList] = useState<Subject[]>([]);
   const [selectedClassId, setSelectedClassId] = useState('');
   const [roster, setRoster] = useState<Student[]>([]);
-  const [term, setTerm] = useState(DEFAULT_TERM);
-  const [subject, setSubject] = useState('');
+  const [term, setTerm] = useState('');
+  const [subjectId, setSubjectId] = useState('');
   const [studentId, setStudentId] = useState('');
   const [caScore, setCaScore] = useState('');
   const [examScore, setExamScore] = useState('');
@@ -34,26 +44,33 @@ export default function GradesPage() {
         if (cs.length > 0) setSelectedClassId(cs[0]._id);
       })
       .catch((err) => setError(err.message));
+    subjectsApi.list().then(setSubjectList).catch((err) => setError(err.message));
   }, []);
+
+  useEffect(() => {
+    if (school && !term) setTerm(school.currentTerm);
+  }, [school, term]);
 
   const selectedClass = classList.find((c) => c._id === selectedClassId);
   const isFormTeacher = !!(selectedClass && user && (user.role === 'admin' || selectedClass.formTeacherId === user.id));
 
+  // The form teacher (or admin) grades every subject on the class; a subject
+  // teacher sees only the subjects assigned to them.
   const subjectOptions = useMemo(() => {
     if (!selectedClass || !user) return [];
-    if (user.role === 'admin' || selectedClass.formTeacherId === user.id) {
-      const fromSubjectTeachers = selectedClass.subjectTeachers.map((st) => st.subject);
-      return fromSubjectTeachers.length > 0 ? fromSubjectTeachers : ['General Studies'];
-    }
-    return selectedClass.subjectTeachers.filter((st) => st.teacherId === user.id).map((st) => st.subject);
-  }, [selectedClass, user]);
+    const names = new Map(subjectList.map((s) => [s._id, s.name]));
+    return selectedClass.subjects
+      .filter((cs) => isFormTeacher || cs.teacherId === user.id)
+      .filter((cs) => names.has(cs.subjectId))
+      .map((cs) => ({ id: cs.subjectId, name: names.get(cs.subjectId)! }));
+  }, [selectedClass, user, subjectList, isFormTeacher]);
 
   useEffect(() => {
-    if (subjectOptions.length > 0) setSubject(subjectOptions[0]);
+    setSubjectId((current) => (subjectOptions.some((s) => s.id === current) ? current : subjectOptions[0]?.id ?? ''));
   }, [subjectOptions]);
 
   function refreshGrades() {
-    if (!selectedClassId) return;
+    if (!selectedClassId || !term) return;
     gradesApi.list({ classId: selectedClassId, term }).then(setEntries).catch((err) => setError(err.message));
   }
 
@@ -63,9 +80,36 @@ export default function GradesPage() {
       .list()
       .then((all) => setRoster(all.filter((s) => s.classId === selectedClassId)))
       .catch((err) => setError(err.message));
+    setStudentId('');
+    setConductStudentId('');
+  }, [selectedClassId]);
+
+  useEffect(() => {
     refreshGrades();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClassId, term]);
+
+  // If this student already has a grade for the subject, load it so the
+  // teacher edits it rather than overwriting it blind.
+  const existing = entries.find((g) => g.studentId === studentId && g.subjectId === subjectId);
+  useEffect(() => {
+    setCaScore(existing ? String(existing.caScore) : '');
+    setExamScore(existing ? String(existing.examScore) : '');
+    setSuccess(null);
+  }, [existing?._id, studentId, subjectId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load any saved conduct/comment for the chosen student.
+  useEffect(() => {
+    setConductSuccess(null);
+    if (!conductStudentId || !term) return;
+    reportCardsApi
+      .get(conductStudentId, term)
+      .then((card) => {
+        setConductRating(card.conductRating ?? 'Good');
+        setTeacherComment(card.teacherComment ?? '');
+      })
+      .catch((err) => setError(err.message));
+  }, [conductStudentId, term]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -75,14 +119,12 @@ export default function GradesPage() {
       await gradesApi.post({
         studentId,
         classId: selectedClassId,
-        subject,
+        subjectId,
         term,
         caScore: Number(caScore),
         examScore: Number(examScore),
       });
-      setCaScore('');
-      setExamScore('');
-      setSuccess('Grade saved.');
+      setSuccess(existing ? 'Grade updated.' : 'Grade saved.');
       refreshGrades();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save grade');
@@ -111,27 +153,40 @@ export default function GradesPage() {
     return roster.find((s) => s._id === id)?.name ?? id;
   }
 
+  const sortedEntries = [...entries].sort(
+    (a, b) => studentName(a.studentId).localeCompare(studentName(b.studentId)) || a.subject.localeCompare(b.subject)
+  );
+
   return (
     <div>
       <h1>Grades</h1>
       <p className="page-subtitle">Subject-based result sheet — continuous assessment and exam scores, per subject, per term.</p>
 
       <div className="inline-form">
-        <select value={selectedClassId} onChange={(e) => setSelectedClassId(e.target.value)}>
+        <select value={selectedClassId} onChange={(e) => setSelectedClassId(e.target.value)} aria-label="Class">
           {classList.map((c) => (
             <option key={c._id} value={c._id}>
               {c.name}
             </option>
           ))}
         </select>
-        <input value={term} onChange={(e) => setTerm(e.target.value)} placeholder="Term" />
+        <TermSelect school={school} value={term} onChange={setTerm} />
       </div>
 
-      {subjectOptions.length === 0 ? (
-        <p>You don't have a subject to grade on this class.</p>
+      {selectedClass && selectedClass.subjects.length === 0 ? (
+        <p className="error">
+          {selectedClass.name} has no subjects yet, so grades can't be entered.{' '}
+          {user?.role === 'admin' ? (
+            <Link to="/classes">Add subjects to this class →</Link>
+          ) : (
+            'Ask the school admin to add subjects to this class.'
+          )}
+        </p>
+      ) : subjectOptions.length === 0 ? (
+        <p>You don't teach a subject on this class.</p>
       ) : (
         <form className="inline-form" onSubmit={handleSubmit}>
-          <select value={studentId} onChange={(e) => setStudentId(e.target.value)} required>
+          <select value={studentId} onChange={(e) => setStudentId(e.target.value)} required aria-label="Student">
             <option value="" disabled>
               Select student
             </option>
@@ -141,10 +196,10 @@ export default function GradesPage() {
               </option>
             ))}
           </select>
-          <select value={subject} onChange={(e) => setSubject(e.target.value)}>
+          <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)} aria-label="Subject">
             {subjectOptions.map((s) => (
-              <option key={s} value={s}>
-                {s}
+              <option key={s.id} value={s.id}>
+                {s.name}
               </option>
             ))}
           </select>
@@ -168,8 +223,14 @@ export default function GradesPage() {
             className="w-32"
             required
           />
-          <button type="submit">Save grade</button>
+          <button type="submit">{existing ? 'Update grade' : 'Save grade'}</button>
         </form>
+      )}
+      {existing && !success && (
+        <p className="info-card-sub mb-3">
+          {studentName(existing.studentId)} already has {existing.total} ({existing.letterGrade}) in {existing.subject}. Saving
+          will replace it.
+        </p>
       )}
       {error && <p className="error">{error}</p>}
       {success && <p className="success">{success}</p>}
@@ -187,14 +248,14 @@ export default function GradesPage() {
             </tr>
           </thead>
           <tbody>
-            {entries.length === 0 && (
+            {sortedEntries.length === 0 && (
               <tr>
                 <td colSpan={6} className="empty-cell">
                   No grades entered yet for this class and term.
                 </td>
               </tr>
             )}
-            {entries.map((g) => (
+            {sortedEntries.map((g) => (
               <tr key={g._id}>
                 <td>{studentName(g.studentId)}</td>
                 <td>{g.subject}</td>
@@ -215,7 +276,7 @@ export default function GradesPage() {
           <h2>Conduct &amp; comment</h2>
           <p className="page-subtitle">Set once per student per term — visible to the parent on the full result card.</p>
           <form className="inline-form" onSubmit={handleConductSubmit}>
-            <select value={conductStudentId} onChange={(e) => setConductStudentId(e.target.value)} required>
+            <select value={conductStudentId} onChange={(e) => setConductStudentId(e.target.value)} required aria-label="Student">
               <option value="" disabled>
                 Select student
               </option>
@@ -225,7 +286,7 @@ export default function GradesPage() {
                 </option>
               ))}
             </select>
-            <select value={conductRating} onChange={(e) => setConductRating(e.target.value as ConductRating)}>
+            <select value={conductRating} onChange={(e) => setConductRating(e.target.value as ConductRating)} aria-label="Conduct">
               {CONDUCT_OPTIONS.map((c) => (
                 <option key={c} value={c}>
                   {c}

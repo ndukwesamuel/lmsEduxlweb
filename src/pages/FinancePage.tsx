@@ -1,8 +1,8 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { expenses as expensesApi, fees as feesApi, students as studentsApi } from '../api/resources';
 import { Expense, Fee, Student } from '../api/types';
-
-const DEFAULT_TERM = '2026 Term 1';
+import TermSelect from '../components/TermSelect';
+import { useSchool } from '../hooks/useSchool';
 
 function formatNaira(amount: number): string {
   return `₦${amount.toLocaleString('en-NG')}`;
@@ -12,7 +12,8 @@ export default function FinancePage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [feeList, setFeeList] = useState<Fee[]>([]);
   const [expenseList, setExpenseList] = useState<Expense[]>([]);
-  const [term, setTerm] = useState(DEFAULT_TERM);
+  const { school } = useSchool();
+  const [term, setTerm] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const [assignStudentId, setAssignStudentId] = useState('');
@@ -22,7 +23,12 @@ export default function FinancePage() {
   const [expenseDescription, setExpenseDescription] = useState('');
   const [expenseAmount, setExpenseAmount] = useState('');
 
+  useEffect(() => {
+    if (school && !term) setTerm(school.currentTerm);
+  }, [school, term]);
+
   function refreshFees() {
+    if (!term) return;
     feesApi.list({ term }).then(setFeeList).catch((err) => setError(err.message));
   }
 
@@ -103,7 +109,7 @@ export default function FinancePage() {
 
       <h2>Student fees</h2>
       <div className="inline-form">
-        <input value={term} onChange={(e) => setTerm(e.target.value)} placeholder="Term" />
+        <TermSelect school={school} value={term} onChange={setTerm} />
       </div>
       <form className="inline-form" onSubmit={handleAssignFee}>
         <select value={assignStudentId} onChange={(e) => setAssignStudentId(e.target.value)} required>

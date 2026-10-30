@@ -7,6 +7,7 @@ import {
   AttendanceLog,
   AttendanceSummaryRow,
   AuthUser,
+  ClassSubject,
   ConductRating,
   DashboardSummary,
   Expense,
@@ -18,8 +19,10 @@ import {
   RegistrationDetails,
   ReportCard,
   ResultRelease,
+  GradeBand,
   School,
   SchoolClass,
+  Subject,
   Student,
   TeacherDashboard,
   UserAccount,
@@ -32,6 +35,15 @@ export function login(email: string, password: string) {
 
 export const school = {
   get: () => api.get<School>('/school'),
+  update: (data: Partial<{ terms: string[]; currentTerm: string; gradingScale: GradeBand[] }>) =>
+    api.patch<School>('/school', data),
+};
+
+export const subjects = {
+  list: () => api.get<Subject[]>('/subjects'),
+  create: (data: { name: string; code?: string }) => api.post<Subject>('/subjects', data),
+  update: (id: string, data: Partial<{ name: string; code: string; isActive: boolean }>) =>
+    api.patch<Subject>(`/subjects/${id}`, data),
 };
 
 // Unauthenticated endpoints for the public /apply/:slug page — no token is
@@ -60,9 +72,9 @@ export const students = {
 
 export const classes = {
   list: () => api.get<SchoolClass[]>('/classes'),
-  create: (data: { name: string; term: string; formTeacherId: string; subjectTeachers?: { teacherId: string; subject: string }[] }) =>
-    api.post<SchoolClass>('/classes', data),
+  create: (data: { name: string; formTeacherId: string; subjects?: ClassSubject[] }) => api.post<SchoolClass>('/classes', data),
   setFormTeacher: (id: string, formTeacherId: string) => api.patch<SchoolClass>(`/classes/${id}`, { formTeacherId }),
+  setSubjects: (id: string, subjects: ClassSubject[]) => api.put<SchoolClass>(`/classes/${id}/subjects`, { subjects }),
 };
 
 export const admissions = {
@@ -97,7 +109,7 @@ export const grades = {
     const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][]).toString();
     return api.get<Grade[]>(`/grades${qs ? `?${qs}` : ''}`);
   },
-  post: (data: { studentId: string; classId: string; subject: string; term: string; caScore: number; examScore: number }) =>
+  post: (data: { studentId: string; classId: string; subjectId: string; term: string; caScore: number; examScore: number }) =>
     api.post<Grade>('/grades', data),
 };
 

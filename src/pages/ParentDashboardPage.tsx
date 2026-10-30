@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
 import { announcements as announcementsApi, dashboard, reportCards as reportCardsApi } from '../api/resources';
 import { Announcement, FullResultCard, ParentChildSummary } from '../api/types';
-
-const DEFAULT_TERM = '2026 Term 1';
+import TermSelect from '../components/TermSelect';
+import { useSchool } from '../hooks/useSchool';
 
 function ResultCardPanel({ studentId }: { studentId: string }) {
-  const [term, setTerm] = useState(DEFAULT_TERM);
+  const { school } = useSchool();
+  const [term, setTerm] = useState('');
   const [card, setCard] = useState<FullResultCard | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   function load() {
+    if (!term) return;
     setLoading(true);
     setError(null);
     reportCardsApi
@@ -21,14 +23,18 @@ function ResultCardPanel({ studentId }: { studentId: string }) {
   }
 
   useEffect(() => {
+    if (school && !term) setTerm(school.currentTerm);
+  }, [school, term]);
+
+  useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [term]);
 
   return (
     <div className="mt-3 pt-3 border-t border-stone-100">
       <div className="inline-form !mb-3 !p-0 !border-0 !shadow-none !bg-transparent">
-        <input value={term} onChange={(e) => setTerm(e.target.value)} placeholder="Term" className="!py-1.5 text-xs" />
+        <TermSelect school={school} value={term} onChange={setTerm} className="!py-1.5 text-xs" />
         <button type="button" onClick={load} disabled={loading}>
           {loading ? 'Loading…' : 'Load result card'}
         </button>

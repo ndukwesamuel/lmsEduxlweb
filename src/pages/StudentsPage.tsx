@@ -1,8 +1,8 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { students as studentsApi, classes as classesApi, users as usersApi, reportCards as reportCardsApi } from '../api/resources';
 import { FullResultCard, SchoolClass, Student, UserAccount } from '../api/types';
-
-const DEFAULT_TERM = '2026 Term 1';
+import TermSelect from '../components/TermSelect';
+import { useSchool } from '../hooks/useSchool';
 
 export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
@@ -15,10 +15,15 @@ export default function StudentsPage() {
   const [linkingId, setLinkingId] = useState<string | null>(null);
 
   const [viewingId, setViewingId] = useState<string | null>(null);
-  const [viewTerm, setViewTerm] = useState(DEFAULT_TERM);
+  const { school } = useSchool();
+  const [viewTerm, setViewTerm] = useState('');
   const [resultCard, setResultCard] = useState<FullResultCard | null>(null);
   const [remarkDraft, setRemarkDraft] = useState('');
   const [cardError, setCardError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (school && !viewTerm) setViewTerm(school.currentTerm);
+  }, [school, viewTerm]);
 
   function refresh() {
     studentsApi.list().then(setStudents).catch((err) => setError(err.message));
@@ -184,7 +189,7 @@ export default function StudentsPage() {
             </button>
           </div>
           <div className="inline-form">
-            <input value={viewTerm} onChange={(e) => setViewTerm(e.target.value)} placeholder="Term" />
+            <TermSelect school={school} value={viewTerm} onChange={setViewTerm} />
             <button type="button" onClick={() => loadResultCard(viewingId, viewTerm)}>
               Load
             </button>

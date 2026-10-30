@@ -11,7 +11,7 @@
     @apply font-display font-bold tracking-tight text-ink;
   }
 
-  .app-content > h1 {
+  .app-content h1 {
     @apply text-2xl mb-6;
   }
 
@@ -251,8 +251,20 @@
     @apply bg-accent-50 text-accent-600;
   }
 
-  .grade-D, .grade-F {
+  .grade-D, .grade-E {
+    @apply bg-amber-50 text-amber-700;
+  }
+
+  .grade-F {
     @apply bg-red-50 text-red-600;
+  }
+
+  .btn-secondary {
+    @apply !bg-stone-100 !text-ink hover:!bg-stone-200 shadow-none;
+  }
+
+  .chip-button {
+    @apply !bg-white !text-ink-soft border border-dashed border-stone-300 hover:!bg-brand-50 hover:!text-brand-700 shadow-none !px-3 !py-1 text-xs font-medium;
   }
 
   /* ---------- Dashboard stat cards ---------- */

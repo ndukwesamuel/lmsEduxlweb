@@ -85,24 +85,41 @@ export interface Admission {
   createdAt: string;
 }
 
+export interface GradeBand {
+  minScore: number;
+  grade: string;
+  remark: string;
+}
+
 export interface School {
   _id: string;
   name: string;
   slug: string;
   code: string;
+  terms: string[];
+  currentTerm: string;
+  gradingScale: GradeBand[];
 }
 
-export interface SubjectTeacher {
-  teacherId: string;
-  subject: string;
+export interface Subject {
+  _id: string;
+  name: string;
+  code?: string;
+  isActive: boolean;
+}
+
+// A subject a class takes. No teacherId means the form teacher teaches it.
+export interface ClassSubject {
+  subjectId: string;
+  teacherId?: string;
 }
 
 export interface SchoolClass {
   _id: string;
   name: string;
   formTeacherId: string;
-  subjectTeachers: SubjectTeacher[];
-  term: string;
+  subjects: ClassSubject[];
+  term?: string;
 }
 
 export interface Student {
@@ -157,6 +174,7 @@ export interface Grade {
   _id: string;
   studentId: string;
   classId: string;
+  subjectId: string;
   subject: string;
   term: string;
   caScore: number;
@@ -227,7 +245,7 @@ export interface FullResultCard {
   student: { id: string; name: string; classId: string };
   term: string;
   released: boolean;
-  subjects: { subject: string; caScore: number; examScore: number; total: number; letterGrade: string }[];
+  subjects: { subject: string; caScore: number; examScore: number; total: number; letterGrade: string; remark?: string }[];
   conductRating: ConductRating | null;
   teacherComment: string | null;
   adminRemark: string | null;
