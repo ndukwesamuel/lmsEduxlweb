@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { classes as classesApi, subjects as subjectsApi } from '../api/resources';
 import { SchoolClass, Subject } from '../api/types';
+import { useHelpFacts } from '../components/HelpContext';
 
 // Quick-add suggestions for a Nigerian nursery / primary / secondary school.
 const COMMON_SUBJECTS = [
@@ -51,6 +52,12 @@ export default function SubjectsPage() {
     for (const c of classList) for (const s of c.subjects) counts.set(s.subjectId, (counts.get(s.subjectId) ?? 0) + 1);
     return counts;
   }, [classList]);
+
+  const unusedSubjects = subjectList.filter((s) => s.isActive && !classCount.get(s._id));
+  useHelpFacts([
+    `The school has ${subjectList.filter((s) => s.isActive).length} active and ${subjectList.filter((s) => !s.isActive).length} inactive subject(s)`,
+    unusedSubjects.length > 0 && `Subjects not given to any class yet: ${unusedSubjects.map((s) => s.name).join(', ')}`,
+  ]);
 
   const existingNames = new Set(subjectList.map((s) => s.name.toLowerCase()));
   const suggestions = COMMON_SUBJECTS.filter((n) => !existingNames.has(n.toLowerCase()));

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import NotificationsBell from './NotificationsBell';
+import HelpAssistant from './HelpAssistant';
+import { HelpProvider } from './HelpContext';
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -54,36 +56,39 @@ export default function Layout() {
   );
 
   return (
-    <div className="app-shell">
-      {menuOpen && <div className="app-sidebar-backdrop" onClick={() => setMenuOpen(false)} />}
+    <HelpProvider>
+      <div className="app-shell">
+        {menuOpen && <div className="app-sidebar-backdrop" onClick={() => setMenuOpen(false)} />}
 
-      <aside className={menuOpen ? 'app-sidebar app-sidebar-open' : 'app-sidebar'}>
-        <span className="brand">SMIS</span>
-        {navLinks}
-        <div className="sidebar-user">
-          <div>
-            <div className="user-name">{user?.name}</div>
-            <div className="user-role">{user?.role === 'superadmin' ? 'Eduxl super admin' : user?.role}</div>
+        <aside className={menuOpen ? 'app-sidebar app-sidebar-open' : 'app-sidebar'}>
+          <span className="brand">SMIS</span>
+          {navLinks}
+          <div className="sidebar-user">
+            <div>
+              <div className="user-name">{user?.name}</div>
+              <div className="user-role">{user?.role === 'superadmin' ? 'Eduxl super admin' : user?.role}</div>
+            </div>
+            <button onClick={logout}>Log out</button>
           </div>
-          <button onClick={logout}>Log out</button>
-        </div>
-      </aside>
+        </aside>
 
-      <div className="app-main">
-        <header className="app-topbar">
-          <button className="mobile-menu-btn" onClick={() => setMenuOpen(true)} aria-label="Open menu">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          <span className="mobile-brand">SMIS</span>
-          {/* Notifications are per-school; a super admin has none. */}
-          {user?.role !== 'superadmin' && <NotificationsBell />}
-        </header>
-        <main className="app-content">
-          <Outlet />
-        </main>
+        <div className="app-main">
+          <header className="app-topbar">
+            <button className="mobile-menu-btn" onClick={() => setMenuOpen(true)} aria-label="Open menu">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <span className="mobile-brand">SMIS</span>
+            {/* Notifications are per-school; a super admin has none. */}
+            {user?.role !== 'superadmin' && <NotificationsBell />}
+          </header>
+          <main className="app-content">
+            <Outlet />
+          </main>
+        </div>
+        <HelpAssistant />
       </div>
-    </div>
+    </HelpProvider>
   );
 }

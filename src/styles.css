@@ -162,6 +162,58 @@
     @apply bg-stone-100 text-ink hover:bg-stone-200;
   }
 
+  .data-table input:not([type='checkbox']),
+  .data-table select,
+  .card > .inline-form input {
+    @apply px-3 py-1.5 border border-stone-200 rounded-lg text-sm font-sans bg-white transition focus:outline-none focus:ring-4 focus:ring-brand-100 focus:border-brand-500;
+  }
+
+  .data-table input[type='checkbox'] {
+    @apply w-5 h-5 accent-brand-600;
+  }
+
+  /* ---------- Help assistant ---------- */
+
+  .help-fab {
+    @apply fixed bottom-4 right-4 z-40 rounded-full !px-4 !py-2.5 shadow-card-lg;
+  }
+
+  .help-fab-icon {
+    @apply inline-flex items-center justify-center w-5 h-5 rounded-full bg-white text-brand-700 text-xs font-bold;
+  }
+
+  .help-panel {
+    @apply fixed z-40 bottom-4 right-4 left-4 sm:left-auto sm:w-[380px] max-h-[75vh] flex flex-col bg-white border border-stone-200 rounded-xl2 shadow-card-lg;
+  }
+
+  .help-panel-header {
+    @apply flex items-center justify-between gap-3 px-4 py-3 border-b border-stone-100;
+  }
+
+  .help-panel-body {
+    @apply flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-2.5 min-h-[160px];
+  }
+
+  .help-msg {
+    @apply text-sm leading-relaxed rounded-xl2 px-3.5 py-2.5 whitespace-pre-wrap max-w-[90%];
+  }
+
+  .help-msg-user {
+    @apply self-end bg-brand-600 text-white;
+  }
+
+  .help-msg-assistant {
+    @apply self-start bg-stone-100 text-ink;
+  }
+
+  .help-panel-input {
+    @apply flex gap-2 px-3 py-3 border-t border-stone-100;
+  }
+
+  .help-panel-input input {
+    @apply flex-1 min-w-0 px-3 py-2 border border-stone-200 rounded-lg text-sm font-sans focus:outline-none focus:ring-4 focus:ring-brand-100 focus:border-brand-500;
+  }
+
   /* ---------- Tables ---------- */
 
   /* Tables stay at the container's full width so columns squeeze and wrap

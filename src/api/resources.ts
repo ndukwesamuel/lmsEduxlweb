@@ -39,6 +39,29 @@ export const school = {
     api.patch<School>('/school', data),
 };
 
+export type HelpPage =
+  | 'dashboard'
+  | 'students'
+  | 'admissions'
+  | 'classes'
+  | 'subjects'
+  | 'results'
+  | 'finance'
+  | 'announcements'
+  | 'users'
+  | 'settings'
+  | 'attendance'
+  | 'grades';
+
+export const help = {
+  ask: (data: {
+    page: HelpPage;
+    question: string;
+    history?: { role: 'user' | 'assistant'; content: string }[];
+    facts?: string[];
+  }) => api.post<{ answer: string }>('/help/ask', data),
+};
+
 export const subjects = {
   list: () => api.get<Subject[]>('/subjects'),
   create: (data: { name: string; code?: string }) => api.post<Subject>('/subjects', data),

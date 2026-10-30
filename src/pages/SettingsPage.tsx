@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { school as schoolApi } from '../api/resources';
 import { GradeBand } from '../api/types';
 import { setSchoolCache, useSchool } from '../hooks/useSchool';
+import { useHelpFacts } from '../components/HelpContext';
 
 const DEFAULT_SCALE: GradeBand[] = [
   { minScore: 70, grade: 'A', remark: 'Excellent' },
@@ -48,6 +49,11 @@ export default function SettingsPage() {
     if (!window.confirm(`Remove ${term} from the term list? Results already saved under it are kept, but it won't appear in term menus.`)) return;
     save({ terms: school.terms.filter((t) => t !== term) }, `${term} removed.`);
   }
+
+  useHelpFacts([
+    school && `Terms on the list: ${school.terms.join(', ')}`,
+    school && `Current term: ${school.currentTerm}`,
+  ]);
 
   function updateBand(i: number, patch: Partial<GradeBand>) {
     setScale(scale.map((b, idx) => (idx === i ? { ...b, ...patch } : b)));

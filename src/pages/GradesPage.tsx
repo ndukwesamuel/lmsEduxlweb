@@ -10,6 +10,7 @@ import {
 import { ConductRating, Grade, SchoolClass, Student, Subject } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import TermSelect from '../components/TermSelect';
+import { useHelpFacts } from '../components/HelpContext';
 import { useSchool } from '../hooks/useSchool';
 
 const CONDUCT_OPTIONS: ConductRating[] = ['Excellent', 'Good', 'Fair', 'Needs Improvement'];
@@ -148,6 +149,23 @@ export default function GradesPage() {
       setError(err instanceof Error ? err.message : 'Failed to save conduct/comment');
     }
   }
+
+  useHelpFacts([
+    classList.length === 0 && 'This user is not attached to any class yet',
+    selectedClass && `Selected class: ${selectedClass.name}`,
+    selectedClass &&
+      (user?.role === 'admin'
+        ? 'User is the school admin'
+        : isFormTeacher
+          ? 'User is the form teacher of this class'
+          : 'User is a subject teacher on this class (not the form teacher)'),
+    term && school && `Selected term: ${term}${term === school.currentTerm ? ' (the current term)' : ' (not the current term)'}`,
+    selectedClass && selectedClass.subjects.length === 0 && 'This class has no subjects yet, so no grades can be entered',
+    selectedClass && selectedClass.subjects.length > 0 && subjectOptions.length === 0 && 'This user has no subject to grade on this class',
+    subjectOptions.length > 0 && `Subjects this user can grade here: ${subjectOptions.map((s) => s.name).join(', ')}`,
+    selectedClass && `Students in this class: ${roster.length}`,
+    selectedClass && `Grades already entered for this class and term: ${entries.length}`,
+  ]);
 
   function studentName(id: string) {
     return roster.find((s) => s._id === id)?.name ?? id;

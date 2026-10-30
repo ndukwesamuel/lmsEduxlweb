@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { classes as classesApi, subjects as subjectsApi, users as usersApi } from '../api/resources';
 import { ClassSubject, SchoolClass, Subject, UserAccount } from '../api/types';
+import { useHelpFacts } from '../components/HelpContext';
 
 export default function ClassesPage() {
   const [classList, setClassList] = useState<SchoolClass[]>([]);
@@ -88,6 +89,15 @@ export default function ClassesPage() {
 
   const editingClass = classList.find((c) => c._id === editingClassId);
   const activeSubjects = subjectList.filter((s) => s.isActive);
+  const classesWithoutSubjects = classList.filter((c) => c.subjects.length === 0);
+
+  useHelpFacts([
+    `The school has ${classList.length} class(es), ${teachers.length} teacher account(s) and ${activeSubjects.length} active subject(s)`,
+    activeSubjects.length === 0 && 'No subjects exist yet — they must be added on the Subjects page first',
+    teachers.length === 0 && 'No teacher accounts exist yet — they are created on the Users page',
+    classesWithoutSubjects.length > 0 && `Classes with no subjects yet: ${classesWithoutSubjects.map((c) => c.name).join(', ')}`,
+    editingClass && `The user is editing the subjects for ${editingClass.name}`,
+  ]);
 
   return (
     <div>
