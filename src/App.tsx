@@ -16,9 +16,11 @@ import FinancePage from './pages/FinancePage';
 import AnnouncementsPage from './pages/AnnouncementsPage';
 import ResultsReleasePage from './pages/ResultsReleasePage';
 import PublicApplyPage from './pages/PublicApplyPage';
+import PlatformSchoolsPage from './pages/PlatformSchoolsPage';
 
 function HomeRedirect() {
   const { user } = useAuth();
+  if (user?.role === 'superadmin') return <PlatformSchoolsPage />;
   if (user?.role === 'teacher') return <TeacherDashboardPage />;
   if (user?.role === 'parent') return <ParentDashboardPage />;
   return <DashboardPage />;

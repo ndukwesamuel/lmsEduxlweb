@@ -1,8 +1,8 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { UserRole } from '../api/types';
+import { AuthRole } from '../api/types';
 
-export default function ProtectedRoute({ roles }: { roles?: UserRole[] }) {
+export default function ProtectedRoute({ roles }: { roles?: AuthRole[] }) {
   const { user, loading } = useAuth();
 
   if (loading) return <p>Loading...</p>;

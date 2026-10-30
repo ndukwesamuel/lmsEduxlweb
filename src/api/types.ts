@@ -1,11 +1,30 @@
 export type UserRole = 'admin' | 'teacher' | 'parent';
 
+// 'superadmin' is an Eduxl platform admin: it belongs to no school
+// (schoolId is null) and only uses the /platform pages.
+export type AuthRole = UserRole | 'superadmin';
+
 export interface AuthUser {
   id: string;
   name: string;
   email: string;
-  role: UserRole;
-  schoolId: string;
+  role: AuthRole;
+  schoolId: string | null;
+}
+
+export interface PlatformSchool {
+  _id: string;
+  name: string;
+  address?: string;
+  plan: string;
+  code: string;
+  slug: string;
+  isActive: boolean;
+  createdAt: string;
+  students: number;
+  admins: number;
+  teachers: number;
+  parents: number;
 }
 
 export type AdmissionStatus =

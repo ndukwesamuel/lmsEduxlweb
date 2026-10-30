@@ -14,6 +14,7 @@ import {
   FullResultCard,
   Grade,
   ParentDashboard,
+  PlatformSchool,
   RegistrationDetails,
   ReportCard,
   ResultRelease,
@@ -133,6 +134,22 @@ export const announcements = {
 export const notifications = {
   list: () => api.get<AppNotification[]>('/notifications'),
   markRead: (id: string) => api.patch<AppNotification>(`/notifications/${id}/read`),
+};
+
+// Eduxl super-admin endpoints — only work with a superadmin login.
+export const platform = {
+  listSchools: () => api.get<PlatformSchool[]>('/platform/schools'),
+  createSchool: (data: {
+    name: string;
+    code: string;
+    slug?: string;
+    address?: string;
+    adminName: string;
+    adminEmail: string;
+    adminPassword: string;
+  }) => api.post<PlatformSchool>('/platform/schools', data),
+  updateSchool: (id: string, data: Partial<{ name: string; address: string; plan: string; isActive: boolean }>) =>
+    api.patch<PlatformSchool>(`/platform/schools/${id}`, data),
 };
 
 export const dashboard = {

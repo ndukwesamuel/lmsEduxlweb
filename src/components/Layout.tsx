@@ -15,6 +15,11 @@ export default function Layout() {
 
   const navLinks = (
     <nav>
+      {user?.role === 'superadmin' && (
+        <NavLink to="/" end>
+          Schools
+        </NavLink>
+      )}
       {user?.role === 'admin' && (
         <>
           <NavLink to="/" end>
@@ -56,7 +61,7 @@ export default function Layout() {
         <div className="sidebar-user">
           <div>
             <div className="user-name">{user?.name}</div>
-            <div className="user-role">{user?.role}</div>
+            <div className="user-role">{user?.role === 'superadmin' ? 'Eduxl super admin' : user?.role}</div>
           </div>
           <button onClick={logout}>Log out</button>
         </div>
@@ -70,7 +75,8 @@ export default function Layout() {
             </svg>
           </button>
           <span className="mobile-brand">SMIS</span>
-          <NotificationsBell />
+          {/* Notifications are per-school; a super admin has none. */}
+          {user?.role !== 'superadmin' && <NotificationsBell />}
         </header>
         <main className="app-content">
           <Outlet />
