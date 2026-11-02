@@ -1,6 +1,11 @@
 
 
-const BASE_URL = "https://prod-main-lmsedulxbackend-64c8fb-00zethmcqhn.compute.instacloud-edge.com/api/v1" //'https://lmsedulxbackend-production-7eed.up.railway.app/api/v1';  /// this is from peter github
+const LIVE_API_URL = "https://prod-main-lmsedulxbackend-64c8fb-00zethmcqhn.compute.instacloud-edge.com/api/v1" //'https://lmsedulxbackend-production-7eed.up.railway.app/api/v1';  /// this is from peter github
+
+// `npm run dev` uses VITE_API_URL (e.g. http://localhost:4000/api/v1 in
+// .env.local) so you can run against a local backend; production builds
+// always use the live API.
+const BASE_URL = import.meta.env.DEV && import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL : LIVE_API_URL;
 
 export class ApiError extends Error {
   status: number;

@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   classes as classesApi,
@@ -7,13 +7,473 @@ import {
   students as studentsApi,
   subjects as subjectsApi,
 } from '../api/resources';
-import { ConductRating, Grade, SchoolClass, Student, Subject } from '../api/types';
+import { ConductRating, Grade, GradeBand, ReportCard, SchoolClass, Student, Subject } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import TermSelect from '../components/TermSelect';
 import { useHelpFacts } from '../components/HelpContext';
 import { useSchool } from '../hooks/useSchool';
 
 const CONDUCT_OPTIONS: ConductRating[] = ['Excellent', 'Good', 'Fair', 'Needs Improvement'];
+
+function gradeFor(total: number, scale: GradeBand[]): string {
+  const band = [...scale].sort((a, b) => b.minScore - a.minScore).find((b) => total >= b.minScore);
+  return band?.grade ?? '';
+}
+
+function byName(a: Student, b: Student) {
+  return a.name.localeCompare(b.name);
+}
+
+// Ask before throwing away typed-in work.
+function confirmDiscard(unsaved: number): boolean {
+  return unsaved === 0 || window.confirm(`You have ${unsaved} unsaved change${unsaved === 1 ? '' : 's'}. Leave without saving?`);
+}
+
+function useWarnOnLeave(unsaved: number) {
+  useEffect(() => {
+    if (unsaved === 0) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [unsaved]);
+}
+
+/* ---------------------------------------------------------------- */
+/* Scores: one row per student for the chosen subject                */
+/* ---------------------------------------------------------------- */
+
+type ScoreDraft = Record<string, { ca: string; exam: string }>;
+
+function parseScore(value: string, max: number): number | null | 'invalid' {
+  if (value.trim() === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 && n <= max ? n : 'invalid';
+}
+
+function ScoreSheet({
+  classId,
+  subject,
+  term,
+  roster,
+  scale,
+  onUnsavedChange,
+}: {
+  classId: string;
+  subject: { id: string; name: string };
+  term: string;
+  roster: Student[];
+  scale: GradeBand[];
+  onUnsavedChange: (n: number) => void;
+}) {
+  const [saved, setSaved] = useState<Grade[]>([]);
+  const [draft, setDraft] = useState<ScoreDraft>({});
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const savedByStudent = useMemo(() => new Map(saved.map((g) => [g.studentId, g])), [saved]);
+
+  function resetDraft(grades: Grade[]) {
+    const next: ScoreDraft = {};
+    for (const g of grades) next[g.studentId] = { ca: String(g.caScore), exam: String(g.examScore) };
+    setDraft(next);
+  }
+
+  function load() {
+    setLoading(true);
+    gradesApi
+      .list({ classId, term })
+      .then((all) => {
+        const forSubject = all.filter((g) => g.subjectId === subject.id);
+        setSaved(forSubject);
+        resetDraft(forSubject);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    setError(null);
+    setMessage(null);
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classId, subject.id, term]);
+
+  // Work out each row's state from what's typed vs. what's saved.
+  const rows = roster.map((student) => {
+    const d = draft[student._id] ?? { ca: '', exam: '' };
+    const savedGrade = savedByStudent.get(student._id);
+    const ca = parseScore(d.ca, 40);
+    const exam = parseScore(d.exam, 60);
+    const changed = savedGrade
+      ? d.ca !== String(savedGrade.caScore) || d.exam !== String(savedGrade.examScore)
+      : d.ca.trim() !== '' || d.exam.trim() !== '';
+    let problem: string | null = null;
+    if (ca === 'invalid') problem = 'CA must be 0–40';
+    else if (exam === 'invalid') problem = 'Exam must be 0–60';
+    else if (changed && (ca === null || exam === null)) {
+      problem = savedGrade && ca === null && exam === null ? 'Use Delete to remove a score' : 'Enter both CA and Exam';
+    }
+    const total = typeof ca === 'number' && typeof exam === 'number' ? ca + exam : null;
+    return { student, d, savedGrade, ca, exam, changed, problem, total };
+  });
+
+  const changedRows = rows.filter((r) => r.changed);
+  const hasProblems = changedRows.some((r) => r.problem);
+  const scoredCount = rows.filter((r) => r.savedGrade).length;
+
+  useEffect(() => onUnsavedChange(changedRows.length), [changedRows.length, onUnsavedChange]);
+
+  function setCell(studentId: string, field: 'ca' | 'exam', value: string) {
+    setMessage(null);
+    setDraft((prev) => ({ ...prev, [studentId]: { ...(prev[studentId] ?? { ca: '', exam: '' }), [field]: value } }));
+  }
+
+  async function saveAll() {
+    if (changedRows.length === 0 || hasProblems) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await gradesApi.saveSheet({
+        classId,
+        subjectId: subject.id,
+        term,
+        entries: changedRows.map((r) => ({ studentId: r.student._id, caScore: r.ca as number, examScore: r.exam as number })),
+      });
+      setMessage(`Saved ${changedRows.length} score${changedRows.length === 1 ? '' : 's'} for ${subject.name}.`);
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save scores');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteScore(student: Student, grade: Grade) {
+    if (!window.confirm(`Delete ${student.name}'s ${subject.name} score (${grade.total})? This can't be undone.`)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await gradesApi.remove(grade._id);
+      setMessage(`Deleted ${student.name}'s ${subject.name} score.`);
+      setSaved((prev) => prev.filter((g) => g._id !== grade._id));
+      setDraft((prev) => {
+        const next = { ...prev };
+        delete next[student._id];
+        return next;
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete score');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function clearRow(studentId: string) {
+    setDraft((prev) => {
+      const next = { ...prev };
+      delete next[studentId];
+      return next;
+    });
+  }
+
+  if (roster.length === 0) return <p className="info-card-empty">This class has no students yet.</p>;
+
+  return (
+    <div>
+      <p className="info-card-sub mb-3">
+        <strong className="text-ink">{subject.name}</strong> · {scoredCount} of {roster.length} students have a score. Type the
+        scores, then click <strong className="text-ink">Save all</strong>.
+      </p>
+
+      {error && <p className="error">{error}</p>}
+      {message && <p className="success mb-3">{message}</p>}
+
+      <div className="table-scroll">
+        <table className="data-table score-sheet">
+          <thead>
+            <tr>
+              <th>Student</th>
+              <th>CA (0–40)</th>
+              <th>Exam (0–60)</th>
+              <th>Total</th>
+              <th>Grade</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={6} className="empty-cell">
+                  Loading…
+                </td>
+              </tr>
+            ) : (
+              rows.map((r) => (
+                <tr key={r.student._id} className={r.problem ? 'row-problem' : r.changed ? 'row-changed' : undefined}>
+                  <td>
+                    {r.student.name}
+                    {r.problem ? (
+                      <div className="text-xs text-red-600">{r.problem}</div>
+                    ) : r.changed ? (
+                      <div className="text-xs text-amber-700">Not saved yet</div>
+                    ) : null}
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      max={40}
+                      value={r.d.ca}
+                      onChange={(e) => setCell(r.student._id, 'ca', e.target.value)}
+                      className={r.ca === 'invalid' ? 'input-invalid w-20' : 'w-20'}
+                      aria-label={`CA score for ${r.student.name}`}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      max={60}
+                      value={r.d.exam}
+                      onChange={(e) => setCell(r.student._id, 'exam', e.target.value)}
+                      className={r.exam === 'invalid' ? 'input-invalid w-20' : 'w-20'}
+                      aria-label={`Exam score for ${r.student.name}`}
+                    />
+                  </td>
+                  <td className="font-semibold">{r.total ?? '—'}</td>
+                  <td>
+                    {r.total !== null ? (
+                      <span className={`status-badge grade-${gradeFor(r.total, scale)}`}>{gradeFor(r.total, scale)}</span>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td className="text-right">
+                    {r.savedGrade ? (
+                      <button
+                        type="button"
+                        className="btn-danger-soft"
+                        onClick={() => deleteScore(r.student, r.savedGrade!)}
+                        disabled={busy}
+                      >
+                        Delete
+                      </button>
+                    ) : r.changed ? (
+                      <button type="button" className="btn-secondary" onClick={() => clearRow(r.student._id)}>
+                        Clear
+                      </button>
+                    ) : null}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="save-bar">
+        <span className="text-sm text-ink-soft">
+          {changedRows.length === 0
+            ? 'All changes saved.'
+            : hasProblems
+              ? 'Fix the rows marked in red to save.'
+              : `${changedRows.length} unsaved change${changedRows.length === 1 ? '' : 's'}`}
+        </span>
+        <div className="flex gap-2">
+          {changedRows.length > 0 && (
+            <button type="button" className="btn-secondary" onClick={() => resetDraft(saved)} disabled={busy}>
+              Undo changes
+            </button>
+          )}
+          <button type="button" onClick={saveAll} disabled={busy || changedRows.length === 0 || hasProblems}>
+            {busy ? 'Saving…' : 'Save all'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------- */
+/* Conduct & comments: one row per student (form teacher / admin)    */
+/* ---------------------------------------------------------------- */
+
+type ConductDraft = Record<string, { rating: ConductRating | ''; comment: string }>;
+
+function ConductSheet({
+  classId,
+  term,
+  roster,
+  onUnsavedChange,
+}: {
+  classId: string;
+  term: string;
+  roster: Student[];
+  onUnsavedChange: (n: number) => void;
+}) {
+  const [saved, setSaved] = useState<ConductDraft>({});
+  const [draft, setDraft] = useState<ConductDraft>({});
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  function load() {
+    setLoading(true);
+    reportCardsApi
+      .listForClass(classId, term)
+      .then((cards: ReportCard[]) => {
+        const next: ConductDraft = {};
+        for (const c of cards) next[c.studentId] = { rating: c.conductRating ?? '', comment: c.teacherComment ?? '' };
+        setSaved(next);
+        setDraft(next);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    setError(null);
+    setMessage(null);
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classId, term]);
+
+  const empty = { rating: '' as const, comment: '' };
+  const changed = roster.filter((s) => {
+    const a = draft[s._id] ?? empty;
+    const b = saved[s._id] ?? empty;
+    return a.rating !== b.rating || a.comment.trim() !== b.comment.trim();
+  });
+
+  useEffect(() => onUnsavedChange(changed.length), [changed.length, onUnsavedChange]);
+
+  function setCell(studentId: string, patch: Partial<{ rating: ConductRating | ''; comment: string }>) {
+    setMessage(null);
+    setDraft((prev) => ({ ...prev, [studentId]: { ...(prev[studentId] ?? empty), ...patch } }));
+  }
+
+  async function saveAll() {
+    if (changed.length === 0) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await reportCardsApi.saveSheet({
+        classId,
+        term,
+        entries: changed.map((s) => {
+          const d = draft[s._id] ?? empty;
+          return { studentId: s._id, conductRating: d.rating, teacherComment: d.comment };
+        }),
+      });
+      setMessage(`Saved conduct and comments for ${changed.length} student${changed.length === 1 ? '' : 's'}.`);
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save conduct and comments');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (roster.length === 0) return <p className="info-card-empty">This class has no students yet.</p>;
+
+  return (
+    <div>
+      <p className="info-card-sub mb-3">
+        One conduct rating and comment per student for this term. Parents see them on the result card once results are
+        released.
+      </p>
+
+      {error && <p className="error">{error}</p>}
+      {message && <p className="success mb-3">{message}</p>}
+
+      <div className="table-scroll">
+        <table className="data-table score-sheet">
+          <thead>
+            <tr>
+              <th>Student</th>
+              <th>Conduct</th>
+              <th>Comment</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={3} className="empty-cell">
+                  Loading…
+                </td>
+              </tr>
+            ) : (
+              [...roster].sort(byName).map((s) => {
+                const d = draft[s._id] ?? empty;
+                const isChanged = changed.includes(s);
+                return (
+                  <tr key={s._id} className={isChanged ? 'row-changed' : undefined}>
+                    <td>
+                      {s.name}
+                      {isChanged && <div className="text-xs text-amber-700">Not saved yet</div>}
+                    </td>
+                    <td>
+                      <select
+                        value={d.rating}
+                        onChange={(e) => setCell(s._id, { rating: e.target.value as ConductRating | '' })}
+                        aria-label={`Conduct for ${s.name}`}
+                      >
+                        <option value="">— Not set —</option>
+                        {CONDUCT_OPTIONS.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="w-full">
+                      <input
+                        value={d.comment}
+                        onChange={(e) => setCell(s._id, { comment: e.target.value })}
+                        placeholder="e.g. Doing very well this term"
+                        maxLength={500}
+                        className="w-full min-w-[200px]"
+                        aria-label={`Comment for ${s.name}`}
+                      />
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="save-bar">
+        <span className="text-sm text-ink-soft">
+          {changed.length === 0 ? 'All changes saved.' : `${changed.length} unsaved change${changed.length === 1 ? '' : 's'}`}
+        </span>
+        <div className="flex gap-2">
+          {changed.length > 0 && (
+            <button type="button" className="btn-secondary" onClick={() => setDraft(saved)} disabled={busy}>
+              Undo changes
+            </button>
+          )}
+          <button type="button" onClick={saveAll} disabled={busy || changed.length === 0}>
+            {busy ? 'Saving…' : 'Save all'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------- */
+/* Page                                                              */
+/* ---------------------------------------------------------------- */
 
 export default function GradesPage() {
   const { user } = useAuth();
@@ -24,18 +484,11 @@ export default function GradesPage() {
   const [roster, setRoster] = useState<Student[]>([]);
   const [term, setTerm] = useState('');
   const [subjectId, setSubjectId] = useState('');
-  const [studentId, setStudentId] = useState('');
-  const [caScore, setCaScore] = useState('');
-  const [examScore, setExamScore] = useState('');
-  const [entries, setEntries] = useState<Grade[]>([]);
+  const [tab, setTab] = useState<'scores' | 'conduct'>('scores');
+  const [unsaved, setUnsaved] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
-  // Conduct + comment (form teacher / admin only, one per student per term).
-  const [conductStudentId, setConductStudentId] = useState('');
-  const [conductRating, setConductRating] = useState<ConductRating>('Good');
-  const [teacherComment, setTeacherComment] = useState('');
-  const [conductSuccess, setConductSuccess] = useState<string | null>(null);
+  useWarnOnLeave(unsaved);
 
   useEffect(() => {
     classesApi
@@ -51,6 +504,14 @@ export default function GradesPage() {
   useEffect(() => {
     if (school && !term) setTerm(school.currentTerm);
   }, [school, term]);
+
+  useEffect(() => {
+    if (!selectedClassId) return;
+    studentsApi
+      .list()
+      .then((all) => setRoster(all.filter((s) => s.classId === selectedClassId).sort(byName)))
+      .catch((err) => setError(err.message));
+  }, [selectedClassId]);
 
   const selectedClass = classList.find((c) => c._id === selectedClassId);
   const isFormTeacher = !!(selectedClass && user && (user.role === 'admin' || selectedClass.formTeacherId === user.id));
@@ -70,84 +531,19 @@ export default function GradesPage() {
     setSubjectId((current) => (subjectOptions.some((s) => s.id === current) ? current : subjectOptions[0]?.id ?? ''));
   }, [subjectOptions]);
 
-  function refreshGrades() {
-    if (!selectedClassId || !term) return;
-    gradesApi.list({ classId: selectedClassId, term }).then(setEntries).catch((err) => setError(err.message));
-  }
-
   useEffect(() => {
-    if (!selectedClassId) return;
-    studentsApi
-      .list()
-      .then((all) => setRoster(all.filter((s) => s.classId === selectedClassId)))
-      .catch((err) => setError(err.message));
-    setStudentId('');
-    setConductStudentId('');
-  }, [selectedClassId]);
+    if (!isFormTeacher) setTab('scores');
+  }, [isFormTeacher]);
 
-  useEffect(() => {
-    refreshGrades();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedClassId, term]);
+  const subject = subjectOptions.find((s) => s.id === subjectId);
 
-  // If this student already has a grade for the subject, load it so the
-  // teacher edits it rather than overwriting it blind.
-  const existing = entries.find((g) => g.studentId === studentId && g.subjectId === subjectId);
-  useEffect(() => {
-    setCaScore(existing ? String(existing.caScore) : '');
-    setExamScore(existing ? String(existing.examScore) : '');
-    setSuccess(null);
-  }, [existing?._id, studentId, subjectId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Load any saved conduct/comment for the chosen student.
-  useEffect(() => {
-    setConductSuccess(null);
-    if (!conductStudentId || !term) return;
-    reportCardsApi
-      .get(conductStudentId, term)
-      .then((card) => {
-        setConductRating(card.conductRating ?? 'Good');
-        setTeacherComment(card.teacherComment ?? '');
-      })
-      .catch((err) => setError(err.message));
-  }, [conductStudentId, term]);
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setSuccess(null);
-    try {
-      await gradesApi.post({
-        studentId,
-        classId: selectedClassId,
-        subjectId,
-        term,
-        caScore: Number(caScore),
-        examScore: Number(examScore),
-      });
-      setSuccess(existing ? 'Grade updated.' : 'Grade saved.');
-      refreshGrades();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save grade');
-    }
-  }
-
-  async function handleConductSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setConductSuccess(null);
-    try {
-      await reportCardsApi.setConduct({
-        studentId: conductStudentId,
-        classId: selectedClassId,
-        term,
-        conductRating,
-        teacherComment,
-      });
-      setConductSuccess('Conduct and comment saved.');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save conduct/comment');
-    }
+  // Switching what's on screen would throw away typed scores, so ask first.
+  function guarded<T>(set: (v: T) => void) {
+    return (value: T) => {
+      if (!confirmDiscard(unsaved)) return;
+      setUnsaved(0);
+      set(value);
+    };
   }
 
   useHelpFacts([
@@ -163,165 +559,105 @@ export default function GradesPage() {
     selectedClass && selectedClass.subjects.length === 0 && 'This class has no subjects yet, so no grades can be entered',
     selectedClass && selectedClass.subjects.length > 0 && subjectOptions.length === 0 && 'This user has no subject to grade on this class',
     subjectOptions.length > 0 && `Subjects this user can grade here: ${subjectOptions.map((s) => s.name).join(', ')}`,
+    subject && tab === 'scores' && `The score sheet for ${subject.name} is open`,
+    tab === 'conduct' && 'The conduct & comments sheet is open',
     selectedClass && `Students in this class: ${roster.length}`,
-    selectedClass && `Grades already entered for this class and term: ${entries.length}`,
+    unsaved > 0 && `There are ${unsaved} unsaved changes on screen`,
   ]);
 
-  function studentName(id: string) {
-    return roster.find((s) => s._id === id)?.name ?? id;
-  }
-
-  const sortedEntries = [...entries].sort(
-    (a, b) => studentName(a.studentId).localeCompare(studentName(b.studentId)) || a.subject.localeCompare(b.subject)
-  );
+  const noSubjects = selectedClass && selectedClass.subjects.length === 0;
 
   return (
     <div>
       <h1>Grades</h1>
-      <p className="page-subtitle">Subject-based result sheet — continuous assessment and exam scores, per subject, per term.</p>
+      <p className="page-subtitle">
+        Choose a class, term and subject. Every student is listed — type their CA and exam scores, then click Save all.
+      </p>
 
       <div className="inline-form">
-        <select value={selectedClassId} onChange={(e) => setSelectedClassId(e.target.value)} aria-label="Class">
-          {classList.map((c) => (
-            <option key={c._id} value={c._id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-        <TermSelect school={school} value={term} onChange={setTerm} />
-      </div>
-
-      {selectedClass && selectedClass.subjects.length === 0 ? (
-        <p className="error">
-          {selectedClass.name} has no subjects yet, so grades can't be entered.{' '}
-          {user?.role === 'admin' ? (
-            <Link to="/classes">Add subjects to this class →</Link>
-          ) : (
-            'Ask the school admin to add subjects to this class.'
-          )}
-        </p>
-      ) : subjectOptions.length === 0 ? (
-        <p>You don't teach a subject on this class.</p>
-      ) : (
-        <form className="inline-form" onSubmit={handleSubmit}>
-          <select value={studentId} onChange={(e) => setStudentId(e.target.value)} required aria-label="Student">
-            <option value="" disabled>
-              Select student
-            </option>
-            {roster.map((s) => (
-              <option key={s._id} value={s._id}>
-                {s.name}
+        <label className="filter-field">
+          <span>Class</span>
+          <select value={selectedClassId} onChange={(e) => guarded(setSelectedClassId)(e.target.value)}>
+            {classList.map((c) => (
+              <option key={c._id} value={c._id}>
+                {c.name}
               </option>
             ))}
           </select>
-          <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)} aria-label="Subject">
-            {subjectOptions.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-          <input
-            type="number"
-            min={0}
-            max={40}
-            placeholder="CA (0-40)"
-            value={caScore}
-            onChange={(e) => setCaScore(e.target.value)}
-            className="w-32"
-            required
-          />
-          <input
-            type="number"
-            min={0}
-            max={60}
-            placeholder="Exam (0-60)"
-            value={examScore}
-            onChange={(e) => setExamScore(e.target.value)}
-            className="w-32"
-            required
-          />
-          <button type="submit">{existing ? 'Update grade' : 'Save grade'}</button>
-        </form>
-      )}
-      {existing && !success && (
-        <p className="info-card-sub mb-3">
-          {studentName(existing.studentId)} already has {existing.total} ({existing.letterGrade}) in {existing.subject}. Saving
-          will replace it.
-        </p>
-      )}
-      {error && <p className="error">{error}</p>}
-      {success && <p className="success">{success}</p>}
-
-      <div className="table-scroll">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Student</th>
-              <th>Subject</th>
-              <th>CA Score</th>
-              <th>Exam Score</th>
-              <th>Total</th>
-              <th>Grade</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedEntries.length === 0 && (
-              <tr>
-                <td colSpan={6} className="empty-cell">
-                  No grades entered yet for this class and term.
-                </td>
-              </tr>
-            )}
-            {sortedEntries.map((g) => (
-              <tr key={g._id}>
-                <td>{studentName(g.studentId)}</td>
-                <td>{g.subject}</td>
-                <td>{g.caScore}</td>
-                <td>{g.examScore}</td>
-                <td>{g.total}</td>
-                <td>
-                  <span className={`status-badge grade-${g.letterGrade}`}>{g.letterGrade}</span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {isFormTeacher && (
-        <div className="card mt-8">
-          <h2>Conduct &amp; comment</h2>
-          <p className="page-subtitle">Set once per student per term — visible to the parent on the full result card.</p>
-          <form className="inline-form" onSubmit={handleConductSubmit}>
-            <select value={conductStudentId} onChange={(e) => setConductStudentId(e.target.value)} required aria-label="Student">
-              <option value="" disabled>
-                Select student
-              </option>
-              {roster.map((s) => (
-                <option key={s._id} value={s._id}>
+        </label>
+        <label className="filter-field">
+          <span>Term</span>
+          <TermSelect school={school} value={term} onChange={guarded(setTerm)} />
+        </label>
+        {tab === 'scores' && subjectOptions.length > 0 && (
+          <label className="filter-field">
+            <span>Subject</span>
+            <select value={subjectId} onChange={(e) => guarded(setSubjectId)(e.target.value)}>
+              {subjectOptions.map((s) => (
+                <option key={s.id} value={s.id}>
                   {s.name}
                 </option>
               ))}
             </select>
-            <select value={conductRating} onChange={(e) => setConductRating(e.target.value as ConductRating)} aria-label="Conduct">
-              {CONDUCT_OPTIONS.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-            <input
-              value={teacherComment}
-              onChange={(e) => setTeacherComment(e.target.value)}
-              placeholder="Comment, e.g. 'Doing exceptionally well this term'"
-              className="flex-1 min-w-[240px]"
-            />
-            <button type="submit">Save</button>
-          </form>
-          {conductSuccess && <p className="success">{conductSuccess}</p>}
+          </label>
+        )}
+      </div>
+
+      {error && <p className="error">{error}</p>}
+
+      {isFormTeacher && (
+        <div className="tab-bar" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'scores'}
+            className={tab === 'scores' ? 'tab tab-active' : 'tab'}
+            onClick={() => guarded(setTab)('scores')}
+          >
+            Scores
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'conduct'}
+            className={tab === 'conduct' ? 'tab tab-active' : 'tab'}
+            onClick={() => guarded(setTab)('conduct')}
+          >
+            Conduct &amp; comments
+          </button>
         </div>
       )}
+
+      <div className="card">
+        {!selectedClass ? (
+          <p className="info-card-empty">You aren't assigned to any class yet. Ask the school admin to add you to a class.</p>
+        ) : tab === 'conduct' ? (
+          term && <ConductSheet classId={selectedClass._id} term={term} roster={roster} onUnsavedChange={setUnsaved} />
+        ) : noSubjects ? (
+          <p className="error">
+            {selectedClass.name} has no subjects yet, so scores can't be entered.{' '}
+            {user?.role === 'admin' ? (
+              <Link to="/classes">Add subjects to this class →</Link>
+            ) : (
+              'Ask the school admin to add subjects to this class.'
+            )}
+          </p>
+        ) : !subject ? (
+          <p className="info-card-empty">You don't teach a subject on this class.</p>
+        ) : (
+          term &&
+          school && (
+            <ScoreSheet
+              classId={selectedClass._id}
+              subject={subject}
+              term={term}
+              roster={roster}
+              scale={school.gradingScale}
+              onUnsavedChange={setUnsaved}
+            />
+          )
+        )}
+      </div>
     </div>
   );
 }

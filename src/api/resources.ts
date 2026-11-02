@@ -134,6 +134,13 @@ export const grades = {
   },
   post: (data: { studentId: string; classId: string; subjectId: string; term: string; caScore: number; examScore: number }) =>
     api.post<Grade>('/grades', data),
+  saveSheet: (data: {
+    classId: string;
+    subjectId: string;
+    term: string;
+    entries: { studentId: string; caScore: number; examScore: number }[];
+  }) => api.post<Grade[]>('/grades/bulk', data),
+  remove: (id: string) => api.delete<void>(`/grades/${id}`),
 };
 
 export const reportCards = {
@@ -141,6 +148,13 @@ export const reportCards = {
     api.get<FullResultCard>(`/report-cards/${studentId}?term=${encodeURIComponent(term)}`),
   setConduct: (data: { studentId: string; classId: string; term: string; conductRating?: ConductRating; teacherComment?: string }) =>
     api.patch<ReportCard>('/report-cards', data),
+  listForClass: (classId: string, term: string) =>
+    api.get<ReportCard[]>(`/report-cards?classId=${classId}&term=${encodeURIComponent(term)}`),
+  saveSheet: (data: {
+    classId: string;
+    term: string;
+    entries: { studentId: string; conductRating: ConductRating | ''; teacherComment: string }[];
+  }) => api.post<ReportCard[]>('/report-cards/bulk', data),
   setAdminRemark: (studentId: string, term: string, adminRemark: string) =>
     api.patch<ReportCard>(`/report-cards/${studentId}/admin-remark`, { term, adminRemark }),
 };

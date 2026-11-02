@@ -172,10 +172,56 @@
     @apply w-5 h-5 accent-brand-600;
   }
 
+  /* ---------- Grades score sheet ---------- */
+
+  .filter-field {
+    @apply flex flex-col gap-1 text-xs font-semibold text-ink-soft uppercase tracking-wide;
+  }
+
+  .filter-field select {
+    @apply normal-case tracking-normal font-normal text-ink;
+  }
+
+  .tab-bar {
+    @apply flex gap-1 mb-3 border-b border-stone-200;
+  }
+
+  .tab {
+    @apply !bg-transparent !text-ink-soft hover:!text-ink !shadow-none !rounded-none border-b-2 border-transparent -mb-px !px-3;
+  }
+
+  .tab-active {
+    @apply !text-brand-700 border-brand-600;
+  }
+
+  .score-sheet td {
+    @apply align-middle;
+  }
+
+  .row-changed td {
+    @apply bg-amber-50;
+  }
+
+  .row-problem td {
+    @apply bg-red-50;
+  }
+
+  .data-table input.input-invalid {
+    @apply border-red-400 focus:ring-red-100 focus:border-red-500;
+  }
+
+  .btn-danger-soft {
+    @apply !bg-red-50 !text-red-600 hover:!bg-red-100 shadow-none !px-3 !py-1.5;
+  }
+
+  .save-bar {
+    @apply sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 mt-4 -mx-5 -mb-5 px-5 py-3 bg-white/95 backdrop-blur border-t border-stone-200 rounded-b-xl2;
+  }
+
   /* ---------- Help assistant ---------- */
 
   .help-fab {
-    @apply fixed bottom-4 right-4 z-40 rounded-full !px-4 !py-2.5 shadow-card-lg;
+    @apply fixed bottom-20 sm:bottom-4 right-4 z-40 rounded-full !px-4 !py-2.5 shadow-card-lg;
   }
 
   .help-fab-icon {
