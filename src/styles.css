@@ -194,6 +194,10 @@
     @apply !text-brand-700 border-brand-600;
   }
 
+  .sheet-input {
+    @apply px-3 py-2 border border-stone-200 rounded-lg text-sm font-sans bg-white transition focus:outline-none focus:ring-4 focus:ring-brand-100 focus:border-brand-500;
+  }
+
   .score-sheet td {
     @apply align-middle;
   }

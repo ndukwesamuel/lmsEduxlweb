@@ -11,6 +11,7 @@ import { ConductRating, Grade, GradeBand, ReportCard, SchoolClass, Student, Subj
 import { useAuth } from '../auth/AuthContext';
 import TermSelect from '../components/TermSelect';
 import { useHelpFacts } from '../components/HelpContext';
+import SheetSaveBar, { confirmDiscard, useWarnOnLeave } from '../components/SheetSaveBar';
 import { useSchool } from '../hooks/useSchool';
 
 const CONDUCT_OPTIONS: ConductRating[] = ['Excellent', 'Good', 'Fair', 'Needs Improvement'];
@@ -22,23 +23,6 @@ function gradeFor(total: number, scale: GradeBand[]): string {
 
 function byName(a: Student, b: Student) {
   return a.name.localeCompare(b.name);
-}
-
-// Ask before throwing away typed-in work.
-function confirmDiscard(unsaved: number): boolean {
-  return unsaved === 0 || window.confirm(`You have ${unsaved} unsaved change${unsaved === 1 ? '' : 's'}. Leave without saving?`);
-}
-
-function useWarnOnLeave(unsaved: number) {
-  useEffect(() => {
-    if (unsaved === 0) return;
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = '';
-    };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [unsaved]);
 }
 
 /* ---------------------------------------------------------------- */
@@ -278,25 +262,13 @@ function ScoreSheet({
         </table>
       </div>
 
-      <div className="save-bar">
-        <span className="text-sm text-ink-soft">
-          {changedRows.length === 0
-            ? 'All changes saved.'
-            : hasProblems
-              ? 'Fix the rows marked in red to save.'
-              : `${changedRows.length} unsaved change${changedRows.length === 1 ? '' : 's'}`}
-        </span>
-        <div className="flex gap-2">
-          {changedRows.length > 0 && (
-            <button type="button" className="btn-secondary" onClick={() => resetDraft(saved)} disabled={busy}>
-              Undo changes
-            </button>
-          )}
-          <button type="button" onClick={saveAll} disabled={busy || changedRows.length === 0 || hasProblems}>
-            {busy ? 'Saving…' : 'Save all'}
-          </button>
-        </div>
-      </div>
+      <SheetSaveBar
+        unsaved={changedRows.length}
+        hasProblems={hasProblems}
+        busy={busy}
+        onUndo={() => resetDraft(saved)}
+        onSave={saveAll}
+      />
     </div>
   );
 }
@@ -452,21 +424,7 @@ function ConductSheet({
         </table>
       </div>
 
-      <div className="save-bar">
-        <span className="text-sm text-ink-soft">
-          {changed.length === 0 ? 'All changes saved.' : `${changed.length} unsaved change${changed.length === 1 ? '' : 's'}`}
-        </span>
-        <div className="flex gap-2">
-          {changed.length > 0 && (
-            <button type="button" className="btn-secondary" onClick={() => setDraft(saved)} disabled={busy}>
-              Undo changes
-            </button>
-          )}
-          <button type="button" onClick={saveAll} disabled={busy || changed.length === 0}>
-            {busy ? 'Saving…' : 'Save all'}
-          </button>
-        </div>
-      </div>
+      <SheetSaveBar unsaved={changed.length} busy={busy} onUndo={() => setDraft(saved)} onSave={saveAll} />
     </div>
   );
 }

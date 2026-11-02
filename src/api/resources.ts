@@ -88,7 +88,7 @@ export const users = {
 export const students = {
   list: () => api.get<Student[]>('/students'),
   create: (data: { name: string; dob: string; classId: string }) => api.post<Student>('/students', data),
-  update: (id: string, data: Partial<{ name: string; dob: string; classId: string; isActive: boolean; guardianUserId: string }>) =>
+  update: (id: string, data: Partial<{ name: string; dob: string; classId: string; isActive: boolean; guardianUserId: string | null }>) =>
     api.patch<Student>(`/students/${id}`, data),
   remove: (id: string) => api.delete<Student>(`/students/${id}`),
 };
@@ -153,7 +153,7 @@ export const reportCards = {
   saveSheet: (data: {
     classId: string;
     term: string;
-    entries: { studentId: string; conductRating: ConductRating | ''; teacherComment: string }[];
+    entries: { studentId: string; conductRating?: ConductRating | ''; teacherComment?: string; adminRemark?: string }[];
   }) => api.post<ReportCard[]>('/report-cards/bulk', data),
   setAdminRemark: (studentId: string, term: string, adminRemark: string) =>
     api.patch<ReportCard>(`/report-cards/${studentId}/admin-remark`, { term, adminRemark }),
@@ -167,6 +167,9 @@ export const fees = {
   assign: (studentId: string, term: string, amountAssigned: number) =>
     api.post<Fee>('/fees', { studentId, term, amountAssigned }),
   recordPayment: (id: string, amountPaid: number) => api.patch<Fee>(`/fees/${id}`, { amountPaid }),
+  saveSheet: (term: string, entries: { studentId: string; amountAssigned: number; amountPaid: number }[]) =>
+    api.post<Fee[]>('/fees/bulk', { term, entries }),
+  remove: (id: string) => api.delete<void>(`/fees/${id}`),
 };
 
 export const expenses = {
