@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { announcements as announcementsApi, dashboard, reportCards as reportCardsApi } from '../api/resources';
 import { Announcement, FullResultCard, ParentChildSummary } from '../api/types';
 import TermSelect from '../components/TermSelect';
@@ -35,9 +36,12 @@ function ResultCardPanel({ studentId }: { studentId: string }) {
     <div className="mt-3 pt-3 border-t border-stone-100">
       <div className="inline-form !mb-3 !p-0 !border-0 !shadow-none !bg-transparent">
         <TermSelect school={school} value={term} onChange={setTerm} className="!py-1.5 text-xs" />
-        <button type="button" onClick={load} disabled={loading}>
-          {loading ? 'Loading…' : 'Load result card'}
-        </button>
+        {loading && <span className="text-xs text-ink-soft">Loading…</span>}
+        {card?.released && card.subjects.length > 0 && (
+          <Link to={`/print/result/${studentId}?term=${encodeURIComponent(term)}`} className="btn-link">
+            🖨 Print / Download result sheet
+          </Link>
+        )}
       </div>
       {error && <p className="error">{error}</p>}
       {card && (
@@ -61,7 +65,16 @@ function ResultCardPanel({ studentId }: { studentId: string }) {
             </div>
           </div>
 
-          {!card.released && (
+          {card.withheld && (
+            <div className="announcement-banner">
+              <span className="announcement-banner-title">Result withheld</span>
+              <span className="announcement-banner-message">
+                This term's result has not been released to you yet. Please contact the school.
+              </span>
+            </div>
+          )}
+
+          {!card.released && !card.withheld && (
             <div className="announcement-banner">
               <span className="announcement-banner-title">Results not yet released</span>
               <span className="announcement-banner-message">

@@ -91,14 +91,30 @@ export interface GradeBand {
   remark: string;
 }
 
+export interface SchoolWording {
+  pupil: 'Student' | 'Pupil';
+  headTeacher: 'Head Teacher' | 'Principal' | 'Proprietor' | 'Proprietress';
+  classTeacher: 'Form Teacher' | 'Class Teacher';
+}
+
 export interface School {
   _id: string;
   name: string;
   slug: string;
   code: string;
+  address?: string;
   terms: string[];
   currentTerm: string;
   gradingScale: GradeBand[];
+  // School profile (Settings → School profile).
+  logo?: string;
+  phone?: string;
+  motto?: string;
+  headTeacherName?: string;
+  signature?: string;
+  stamp?: string;
+  brandColor?: string;
+  wording?: SchoolWording;
 }
 
 export interface Subject {
@@ -239,12 +255,18 @@ export interface ResultRelease {
   term: string;
   releasedBy: string;
   releasedAt: string;
+  // Pupils whose result is held back even though the class is released.
+  withheldStudentIds: string[];
 }
 
 export interface FullResultCard {
-  student: { id: string; name: string; classId: string };
+  student: { id: string; name: string; classId: string; className: string | null };
   term: string;
   released: boolean;
+  // Class is released but this pupil's result is held back (e.g. unpaid fees).
+  withheld: boolean;
+  totalScore?: number;
+  average?: number | null;
   subjects: { subject: string; caScore: number; examScore: number; total: number; letterGrade: string; remark?: string }[];
   conductRating: ConductRating | null;
   teacherComment: string | null;

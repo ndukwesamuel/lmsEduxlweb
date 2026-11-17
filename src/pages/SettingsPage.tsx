@@ -3,6 +3,7 @@ import { school as schoolApi } from '../api/resources';
 import { GradeBand } from '../api/types';
 import { setSchoolCache, useSchool } from '../hooks/useSchool';
 import { useHelpFacts } from '../components/HelpContext';
+import SchoolProfileCard from '../components/SchoolProfileCard';
 
 const DEFAULT_SCALE: GradeBand[] = [
   { minScore: 70, grade: 'A', remark: 'Excellent' },
@@ -53,6 +54,7 @@ export default function SettingsPage() {
   useHelpFacts([
     school && `Terms on the list: ${school.terms.join(', ')}`,
     school && `Current term: ${school.currentTerm}`,
+    school && !school.logo && 'The school has not uploaded a logo yet',
   ]);
 
   function updateBand(i: number, patch: Partial<GradeBand>) {
@@ -65,7 +67,10 @@ export default function SettingsPage() {
   return (
     <div>
       <h1>Settings</h1>
-      <p className="page-subtitle">Terms and grading used across attendance, grades, result cards and fees.</p>
+      <p className="page-subtitle">Your school's profile and look, its terms, and its grading scale.</p>
+
+      <SchoolProfileCard school={school} />
+
       {error && <p className="error">{error}</p>}
       {success && <p className="success">{success}</p>}
 

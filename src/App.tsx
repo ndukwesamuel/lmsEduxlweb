@@ -19,6 +19,7 @@ import PublicApplyPage from './pages/PublicApplyPage';
 import PlatformSchoolsPage from './pages/PlatformSchoolsPage';
 import SubjectsPage from './pages/SubjectsPage';
 import SettingsPage from './pages/SettingsPage';
+import ResultSheetPage from './pages/ResultSheetPage';
 
 function HomeRedirect() {
   const { user } = useAuth();
@@ -35,6 +36,8 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/apply/:slug" element={<PublicApplyPage />} />
         <Route element={<ProtectedRoute />}>
+          {/* Printable result sheet: outside the layout so no menus print. */}
+          <Route path="/print/result/:studentId" element={<ResultSheetPage />} />
           <Route element={<Layout />}>
             <Route path="/" element={<HomeRedirect />} />
             <Route element={<ProtectedRoute roles={['admin']} />}>

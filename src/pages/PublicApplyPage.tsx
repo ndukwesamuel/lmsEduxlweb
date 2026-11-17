@@ -3,17 +3,8 @@ import { useParams } from 'react-router-dom';
 import { publicApply } from '../api/resources';
 import { ApiError } from '../api/client';
 import { GuardianDetails } from '../api/types';
-
-const MAX_DOC_BYTES = 1_500_000;
-
-function fileToDataUri(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error('Could not read file'));
-    reader.readAsDataURL(file);
-  });
-}
+import PhotoField from '../components/PhotoField';
+import { applyBrandColor, readableBase } from '../utils/theme';
 
 const emptyGuardian: GuardianDetails = {};
 
@@ -73,6 +64,11 @@ const initialForm: FormState = {
 export default function PublicApplyPage() {
   const { slug } = useParams<{ slug: string }>();
   const [schoolName, setSchoolName] = useState<string | null>(null);
+  const [brand, setBrand] = useState<{ logo: string | null; motto: string | null; brandColor: string | null }>({
+    logo: null,
+    motto: null,
+    brandColor: null,
+  });
   const [notFound, setNotFound] = useState(false);
   const [form, setForm] = useState<FormState>(initialForm);
   const [error, setError] = useState<string | null>(null);
@@ -83,27 +79,20 @@ export default function PublicApplyPage() {
     if (!slug) return;
     publicApply
       .getSchool(slug)
-      .then((s) => setSchoolName(s.name))
+      .then((s) => {
+        setSchoolName(s.name);
+        setBrand({ logo: s.logo, motto: s.motto, brandColor: s.brandColor });
+      })
       .catch(() => setNotFound(true));
   }, [slug]);
 
-  const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setForm((f) => ({ ...f, [k]: v }));
+  // The school's own colour on this page (buttons and the side panel).
+  useEffect(() => {
+    applyBrandColor(brand.brandColor);
+    return () => applyBrandColor(null);
+  }, [brand.brandColor]);
 
-  async function handleFile(k: 'passportPhoto' | 'birthCertificate', file: File | undefined) {
-    if (!file) return;
-    setError(null);
-    if (file.size > MAX_DOC_BYTES) {
-      setError(`${k === 'passportPhoto' ? 'Passport photo' : 'Birth certificate'} must be under 1.5 MB`);
-      return;
-    }
-    const okType =
-      k === 'passportPhoto' ? file.type.startsWith('image/') : file.type.startsWith('image/') || file.type === 'application/pdf';
-    if (!okType) {
-      setError(k === 'passportPhoto' ? 'Passport photo must be an image' : 'Birth certificate must be an image or PDF');
-      return;
-    }
-    set(k, await fileToDataUri(file));
-  }
+  const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -150,9 +139,21 @@ export default function PublicApplyPage() {
 
   return (
     <div className="auth-page">
-      <div className="auth-brand">
-        <span className="auth-brand-mark">SMIS</span>
+      <div
+        className="auth-brand"
+        style={
+          brand.brandColor
+            ? { background: `radial-gradient(circle at 15% 15%, rgb(var(--brand-400)), rgb(${readableBase(brand.brandColor).join(' ')}) 55%, rgb(var(--brand-800)))` }
+            : undefined
+        }
+      >
+        {brand.logo ? (
+          <img src={brand.logo} alt="" className="h-16 w-16 object-contain rounded-xl2 bg-white p-1.5" />
+        ) : (
+          <span className="auth-brand-mark">SMIS</span>
+        )}
         <h2>{schoolName ?? 'Loading…'}</h2>
+        {brand.motto && <p className="italic opacity-90">“{brand.motto}”</p>}
         <p>Admission application — tell us about your child and we'll be in touch.</p>
       </div>
       <div className="auth-panel">
@@ -204,22 +205,19 @@ export default function PublicApplyPage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-semibold uppercase tracking-wide text-ink-soft">
-                  Passport photograph (optional now)
-                </span>
-                <input type="file" accept="image/*" onChange={(e) => handleFile('passportPhoto', e.target.files?.[0])} />
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-semibold uppercase tracking-wide text-ink-soft">
-                  Birth certificate (optional now)
-                </span>
-                <input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  onChange={(e) => handleFile('birthCertificate', e.target.files?.[0])}
-                />
-              </div>
+              <PhotoField
+                label="Passport photograph (optional now)"
+                value={form.passportPhoto}
+                onChange={(uri) => set('passportPhoto', uri)}
+                onError={setError}
+              />
+              <PhotoField
+                label="Birth certificate (optional now)"
+                value={form.birthCertificate}
+                onChange={(uri) => set('birthCertificate', uri)}
+                onError={setError}
+                allowPdf
+              />
             </div>
 
             {/* Honeypot — hidden from real visitors, bots that fill every field trip it. */}

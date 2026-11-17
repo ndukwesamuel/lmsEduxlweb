@@ -4,11 +4,14 @@ import { useAuth } from '../auth/AuthContext';
 import NotificationsBell from './NotificationsBell';
 import HelpAssistant from './HelpAssistant';
 import { HelpProvider } from './HelpContext';
+import { BrandMark, PupilsLabel, SchoolTheme } from './SchoolBrand';
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
+
+  const isSchoolUser = !!user && user.role !== 'superadmin';
 
   // Close the mobile drawer whenever the route changes.
   useEffect(() => {
@@ -27,7 +30,9 @@ export default function Layout() {
           <NavLink to="/" end>
             Dashboard
           </NavLink>
-          <NavLink to="/students">Students</NavLink>
+          <NavLink to="/students">
+            <PupilsLabel />
+          </NavLink>
           <NavLink to="/admissions">Admissions</NavLink>
           <NavLink to="/classes">Classes</NavLink>
           <NavLink to="/subjects">Subjects</NavLink>
@@ -58,10 +63,11 @@ export default function Layout() {
   return (
     <HelpProvider>
       <div className="app-shell">
+        {isSchoolUser && <SchoolTheme />}
         {menuOpen && <div className="app-sidebar-backdrop" onClick={() => setMenuOpen(false)} />}
 
         <aside className={menuOpen ? 'app-sidebar app-sidebar-open' : 'app-sidebar'}>
-          <span className="brand">SMIS</span>
+          {isSchoolUser ? <BrandMark className="brand" /> : <span className="brand">SMIS</span>}
           {navLinks}
           <div className="sidebar-user">
             <div>
@@ -79,7 +85,7 @@ export default function Layout() {
                 <path d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <span className="mobile-brand">SMIS</span>
+            {isSchoolUser ? <BrandMark className="mobile-brand" /> : <span className="mobile-brand">SMIS</span>}
             {/* Notifications are per-school; a super admin has none. */}
             {user?.role !== 'superadmin' && <NotificationsBell />}
           </header>

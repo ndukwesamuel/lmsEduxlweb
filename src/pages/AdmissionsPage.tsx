@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { admissions as admissionsApi, classes as classesApi, school as schoolApi } from '../api/resources';
 import { Admission, AdmissionStatus, GuardianDetails, RegistrationDetails, SchoolClass } from '../api/types';
+import PhotoField from '../components/PhotoField';
 
 const TRANSITIONS: Record<AdmissionStatus, AdmissionStatus[]> = {
   Applied: ['Reviewed', 'Withdrawn'],
@@ -13,17 +14,6 @@ const TRANSITIONS: Record<AdmissionStatus, AdmissionStatus[]> = {
   'Not Admitted': [],
   Withdrawn: [],
 };
-
-const MAX_DOC_BYTES = 1_500_000;
-
-function fileToDataUri(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error('Could not read file'));
-    reader.readAsDataURL(file);
-  });
-}
 
 const emptyGuardian: GuardianDetails = {};
 
@@ -95,22 +85,6 @@ function RegistrationModal({
   }, [admissionId]);
 
   const set = (k: keyof RegistrationDetails, v: unknown) => setReg((r) => (r ? { ...r, [k]: v } : r));
-
-  async function handleFile(k: 'passportPhoto' | 'birthCertificate', file: File | undefined) {
-    if (!file) return;
-    setErr(null);
-    if (file.size > MAX_DOC_BYTES) {
-      setErr(`${k === 'passportPhoto' ? 'Passport photo' : 'Birth certificate'} must be under 1.5 MB`);
-      return;
-    }
-    const okType =
-      k === 'passportPhoto' ? file.type.startsWith('image/') : file.type.startsWith('image/') || file.type === 'application/pdf';
-    if (!okType) {
-      setErr(k === 'passportPhoto' ? 'Passport photo must be an image' : 'Birth certificate must be an image or PDF');
-      return;
-    }
-    set(k, await fileToDataUri(file));
-  }
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -205,30 +179,19 @@ function RegistrationModal({
             />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Passport photograph</span>
-                <input type="file" accept="image/*" onChange={(e) => handleFile('passportPhoto', e.target.files?.[0])} />
-                {reg.passportPhoto && (
-                  <img
-                    src={reg.passportPhoto}
-                    alt="passport preview"
-                    className="h-24 w-24 object-cover rounded-xl2 border border-stone-200"
-                  />
-                )}
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Birth certificate</span>
-                <input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  onChange={(e) => handleFile('birthCertificate', e.target.files?.[0])}
-                />
-                {reg.birthCertificate && (
-                  <span className="text-xs text-brand-700">
-                    {reg.birthCertificate.startsWith('data:application/pdf') ? 'PDF attached' : 'Image attached'}
-                  </span>
-                )}
-              </div>
+              <PhotoField
+                label="Passport photograph"
+                value={reg.passportPhoto}
+                onChange={(uri) => set('passportPhoto', uri)}
+                onError={setErr}
+              />
+              <PhotoField
+                label="Birth certificate"
+                value={reg.birthCertificate}
+                onChange={(uri) => set('birthCertificate', uri)}
+                onError={setErr}
+                allowPdf
+              />
             </div>
           </>
         )}

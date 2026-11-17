@@ -5,6 +5,7 @@ import { FullResultCard, SchoolClass, Student, UserAccount } from '../api/types'
 import TermSelect from '../components/TermSelect';
 import { useHelpFacts } from '../components/HelpContext';
 import { useSchool } from '../hooks/useSchool';
+import { useWording } from '../hooks/useWording';
 
 function toDateInput(iso: string): string {
   return iso ? iso.slice(0, 10) : '';
@@ -12,6 +13,7 @@ function toDateInput(iso: string): string {
 
 export default function StudentsPage() {
   const { school } = useSchool();
+  const words = useWording();
   const [students, setStudents] = useState<Student[]>([]);
   const [classList, setClassList] = useState<SchoolClass[]>([]);
   const [parents, setParents] = useState<UserAccount[]>([]);
@@ -169,9 +171,10 @@ export default function StudentsPage() {
 
   return (
     <div>
-      <h1>Students</h1>
+      <h1>{words.pupils}</h1>
       <p className="page-subtitle">
-        Change a student's class or parent straight from the list. Use Edit to fix a name or date of birth.
+        Change a {words.pupil.toLowerCase()}'s class or parent straight from the list. Use Edit to fix a name or date of
+        birth.
       </p>
 
       <div className="flex flex-wrap items-end gap-2.5 mb-4">
@@ -191,7 +194,7 @@ export default function StudentsPage() {
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Type a name…" className="sheet-input" />
         </label>
         <button type="button" onClick={() => setShowAdd((v) => !v)}>
-          {showAdd ? 'Close' : '+ Add student'}
+          {showAdd ? 'Close' : `+ Add ${words.pupil.toLowerCase()}`}
         </button>
       </div>
 
@@ -230,7 +233,7 @@ export default function StudentsPage() {
             </select>
           </label>
           <button type="submit" className="self-end">
-            Add student
+            Add {words.pupil.toLowerCase()}
           </button>
           {parents.length === 0 && (
             <p className="info-card-sub w-full">
@@ -251,8 +254,14 @@ export default function StudentsPage() {
               Close
             </button>
           </div>
-          <div className="mb-3">
+          <div className="flex flex-wrap items-center gap-2 mb-3">
             <TermSelect school={school} value={viewTerm} onChange={setViewTerm} className="sheet-input" />
+            {resultCard && resultCard.subjects.length > 0 && (
+              <Link to={`/print/result/${viewing._id}?term=${encodeURIComponent(viewTerm)}`} className="btn-link">
+                🖨 Print result sheet
+              </Link>
+            )}
+            {resultCard?.withheld && <span className="text-xs text-red-600 font-semibold">Held back from parent</span>}
           </div>
           {cardError && <p className="error">{cardError}</p>}
           {!resultCard && !cardError && <p className="info-card-empty">Loading…</p>}
@@ -271,7 +280,7 @@ export default function StudentsPage() {
                 </div>
                 <div>
                   <div className="stat-label">Released to parent</div>
-                  <div className="stat-value-sm">{resultCard.released ? 'Yes' : 'Not yet'}</div>
+                  <div className="stat-value-sm">{resultCard.released ? 'Yes' : resultCard.withheld ? 'Held back' : 'Not yet'}</div>
                 </div>
               </div>
               {resultCard.teacherComment && (
@@ -334,7 +343,7 @@ export default function StudentsPage() {
       )}
 
       <p className="info-card-sub mb-2">
-        Showing {shown.length} of {students.length} students
+        Showing {shown.length} of {students.length} {words.pupils.toLowerCase()}
       </p>
       <div className="table-scroll">
         <table className="data-table score-sheet">

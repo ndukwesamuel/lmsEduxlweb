@@ -1,22 +1,187 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   classes as classesApi,
+  fees as feesApi,
   reportCards as reportCardsApi,
   resultReleases as releasesApi,
   students as studentsApi,
 } from '../api/resources';
-import { ReportCard, ResultRelease, SchoolClass, Student } from '../api/types';
+import { Fee, ReportCard, ResultRelease, SchoolClass, Student } from '../api/types';
 import TermSelect from '../components/TermSelect';
 import SheetSaveBar, { confirmDiscard, useWarnOnLeave } from '../components/SheetSaveBar';
 import { useHelpFacts } from '../components/HelpContext';
 import { useSchool } from '../hooks/useSchool';
+import { useWording } from '../hooks/useWording';
+
+function formatNaira(amount: number): string {
+  return `₦${amount.toLocaleString('en-NG')}`;
+}
+
+/** Pick which pupils of one class get their result. Ticked = parent can see it. */
+function PupilPicker({
+  klass,
+  term,
+  release,
+  onDone,
+  onCancel,
+}: {
+  klass: SchoolClass;
+  term: string;
+  release: ResultRelease | undefined;
+  onDone: (message: string) => void;
+  onCancel: () => void;
+}) {
+  const words = useWording();
+  const pupil = words.pupil.toLowerCase();
+  const pupils = words.pupils.toLowerCase();
+  const [roster, setRoster] = useState<Student[]>([]);
+  const [fees, setFees] = useState<Fee[]>([]);
+  const [held, setHeld] = useState<Set<string>>(new Set(release?.withheldStudentIds ?? []));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    studentsApi
+      .list()
+      .then((all) => setRoster(all.filter((s) => s.classId === klass._id).sort((a, b) => a.name.localeCompare(b.name))))
+      .catch((e) => setError(e.message));
+    feesApi.list({ term }).then(setFees).catch(() => setFees([]));
+  }, [klass._id, term]);
+
+  useEffect(() => setHeld(new Set(release?.withheldStudentIds ?? [])), [release]);
+
+  const feeByStudent = useMemo(() => new Map(fees.map((f) => [f.studentId, f])), [fees]);
+  const owing = roster.filter((s) => {
+    const f = feeByStudent.get(s._id);
+    return f && f.amountPaid < f.amountAssigned;
+  });
+
+  function toggle(id: string) {
+    setHeld((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    // Only pupils still in the class count; stale ids are dropped.
+    const withheld = roster.filter((s) => held.has(s._id)).map((s) => s._id);
+    try {
+      if (release) await releasesApi.updateWithheld(klass._id, term, withheld);
+      else await releasesApi.release(klass._id, term, withheld);
+      const released = roster.length - withheld.length;
+      onDone(
+        `${klass.name}, ${term}: results released to ${released} ${released === 1 ? pupil : pupils}` +
+          (withheld.length > 0 ? `, ${withheld.length} held back.` : '.')
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const releasing = roster.length - roster.filter((s) => held.has(s._id)).length;
+
+  return (
+    <div className="card mb-4">
+      <div className="info-card-top mb-2">
+        <h2 className="!mb-0">
+          {klass.name} — {term}
+        </h2>
+        <button type="button" className="btn-secondary" onClick={onCancel}>
+          Close
+        </button>
+      </div>
+      <p className="info-card-sub mb-3">
+        <strong className="text-ink">Ticked</strong> {pupils}' parents will see the result.{' '}
+        <strong className="text-ink">Untick</strong> a {pupil} to hold their result back (for example, until fees are paid) —
+        their parent sees "Result withheld, please contact the school". You can change this at any time.
+      </p>
+
+      <div className="flex flex-wrap gap-2 mb-3">
+        <button type="button" className="btn-secondary" onClick={() => setHeld(new Set())}>
+          Tick everyone
+        </button>
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={() => setHeld(new Set(owing.map((s) => s._id)))}
+          disabled={owing.length === 0}
+        >
+          Hold back everyone who owes fees ({owing.length})
+        </button>
+      </div>
+
+      {error && <p className="error">{error}</p>}
+
+      {roster.length === 0 ? (
+        <p className="info-card-empty">This class has no students yet.</p>
+      ) : (
+        <div className="table-scroll">
+          <table className="data-table score-sheet">
+            <thead>
+              <tr>
+                <th>Release</th>
+                <th>{words.pupil}</th>
+                <th>Fees ({term})</th>
+              </tr>
+            </thead>
+            <tbody>
+              {roster.map((s) => {
+                const fee = feeByStudent.get(s._id);
+                const isHeld = held.has(s._id);
+                return (
+                  <tr key={s._id} className={isHeld ? 'row-problem' : undefined}>
+                    <td>
+                      <input type="checkbox" checked={!isHeld} onChange={() => toggle(s._id)} aria-label={`Release ${s.name}'s result`} />
+                    </td>
+                    <td>
+                      {s.name}
+                      {isHeld && <div className="text-xs text-red-600">Held back</div>}
+                    </td>
+                    <td className="text-sm">
+                      {!fee ? (
+                        <span className="text-ink-soft">No fee set</span>
+                      ) : fee.amountPaid >= fee.amountAssigned ? (
+                        <span className="status-badge fee-paid">paid</span>
+                      ) : (
+                        <span className="text-red-600 font-semibold">Owes {formatNaira(fee.amountAssigned - fee.amountPaid)}</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="save-bar">
+        <span className="text-sm text-ink-soft">
+          {releasing} of {roster.length} {pupils} will see their result
+        </span>
+        <button type="button" onClick={save} disabled={busy || roster.length === 0}>
+          {busy ? 'Saving…' : release ? 'Save changes' : `Release to ${releasing} ${releasing === 1 ? pupil : pupils}`}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function ReleasePanel() {
   const { school } = useSchool();
+  const words = useWording();
   const [classList, setClassList] = useState<SchoolClass[]>([]);
   const [releases, setReleases] = useState<ResultRelease[]>([]);
-  const [terms, setTerms] = useState<Record<string, string>>({});
+  const [term, setTerm] = useState('');
+  const [pickingClassId, setPickingClassId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   function refresh() {
@@ -31,18 +196,21 @@ function ReleasePanel() {
     refresh();
   }, []);
 
-  const releasedSet = useMemo(
-    () => new Set(releases.map((r) => `${r.classId}::${r.term}`)),
-    [releases]
-  );
-  const classById = useMemo(() => Object.fromEntries(classList.map((c) => [c._id, c])), [classList]);
+  useEffect(() => {
+    if (school && !term) setTerm(school.currentTerm);
+  }, [school, term]);
 
-  async function toggle(classId: string, term: string, currentlyReleased: boolean) {
-    setBusy(`${classId}::${term}`);
+  const releaseFor = (classId: string) => releases.find((r) => r.classId === classId && r.term === term);
+  const pickingClass = classList.find((c) => c._id === pickingClassId);
+
+  async function unrelease(klass: SchoolClass) {
+    if (!window.confirm(`Hide ${klass.name}'s ${term} results from all parents again?`)) return;
+    setBusy(klass._id);
     setError(null);
+    setMessage(null);
     try {
-      if (currentlyReleased) await releasesApi.unrelease(classId, term);
-      else await releasesApi.release(classId, term);
+      await releasesApi.unrelease(klass._id, term);
+      setMessage(`${klass.name}'s ${term} results are hidden from parents again.`);
       refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to update release');
@@ -54,55 +222,87 @@ function ReleasePanel() {
   return (
     <div>
       <p className="info-card-sub mb-3">
-        Academic results stay hidden from parents until you release them here, per class and term. Attendance is always
-        visible.
+        Results stay hidden from parents until you release them. Choose the {words.pupils.toLowerCase()} for each class —
+        you can hold back individual {words.pupils.toLowerCase()}, for example until their school fees are paid. Attendance
+        is always visible.
       </p>
-      {error && <p className="error">{error}</p>}
 
-      <div className="card mb-4">
-        <h2 className="text-base font-display font-semibold mb-2">Release a class + term</h2>
+      <div className="inline-form">
+        <label className="filter-field">
+          <span>Term</span>
+          <TermSelect
+            school={school}
+            value={term}
+            onChange={(t) => {
+              setTerm(t);
+              setPickingClassId(null);
+            }}
+          />
+        </label>
+      </div>
+
+      {error && <p className="error">{error}</p>}
+      {message && <p className="success mb-3">{message}</p>}
+
+      {pickingClass && term && (
+        <PupilPicker
+          klass={pickingClass}
+          term={term}
+          release={releaseFor(pickingClass._id)}
+          onCancel={() => setPickingClassId(null)}
+          onDone={(msg) => {
+            setMessage(msg);
+            setPickingClassId(null);
+            refresh();
+          }}
+        />
+      )}
+
+      <div className="card">
         <div className="table-scroll">
-          <table className="data-table compact">
+          <table className="data-table">
             <thead>
               <tr>
                 <th>Class</th>
-                <th>Term</th>
-                <th>Status</th>
-                <th>Action</th>
+                <th>Status ({term})</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
+              {classList.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="empty-cell">
+                    No classes yet.
+                  </td>
+                </tr>
+              )}
               {classList.map((c) => {
-                const term = terms[c._id] ?? school?.currentTerm ?? '';
-                const key = `${c._id}::${term}`;
-                const released = releasedSet.has(key);
+                const release = releaseFor(c._id);
+                const heldCount = release?.withheldStudentIds.length ?? 0;
                 return (
                   <tr key={c._id}>
                     <td>{c.name}</td>
                     <td>
-                      <TermSelect
-                        school={school}
-                        value={term}
-                        onChange={(t) => setTerms({ ...terms, [c._id]: t })}
-                        className="!py-1.5 text-xs"
-                      />
-                    </td>
-                    <td>
-                      {released ? (
-                        <span className="status-badge status-Active">Released</span>
+                      {release ? (
+                        <>
+                          <span className="status-badge status-Active">Released</span>
+                          {heldCount > 0 && <span className="text-xs text-red-600 ml-2">{heldCount} held back</span>}
+                        </>
                       ) : (
-                        <span className="status-badge status-Applied">Hidden</span>
+                        <span className="status-badge status-Applied">Hidden from parents</span>
                       )}
                     </td>
                     <td>
-                      <button
-                        type="button"
-                        className={released ? '!bg-stone-100 !text-ink hover:!bg-stone-200' : ''}
-                        disabled={busy === key || !term}
-                        onClick={() => toggle(c._id, term, released)}
-                      >
-                        {busy === key ? '…' : released ? 'Unrelease' : 'Release'}
-                      </button>
+                      <div className="flex flex-wrap justify-end gap-1.5">
+                        <button type="button" onClick={() => setPickingClassId(c._id)} disabled={!term}>
+                          {release ? `Change ${words.pupils.toLowerCase()}` : `Choose ${words.pupils.toLowerCase()} & release`}
+                        </button>
+                        {release && (
+                          <button type="button" className="btn-secondary" onClick={() => unrelease(c)} disabled={busy === c._id}>
+                            Unrelease
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -110,45 +310,6 @@ function ReleasePanel() {
             </tbody>
           </table>
         </div>
-      </div>
-
-      <div className="card">
-        <h2 className="text-base font-display font-semibold mb-2">Currently released</h2>
-        {releases.length === 0 ? (
-          <p className="info-card-empty">Nothing released yet.</p>
-        ) : (
-          <div className="table-scroll">
-            <table className="data-table compact">
-              <thead>
-                <tr>
-                  <th>Class</th>
-                  <th>Term</th>
-                  <th>Released</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {releases.map((r) => (
-                  <tr key={r._id}>
-                    <td>{classById[r.classId]?.name ?? r.classId}</td>
-                    <td>{r.term}</td>
-                    <td>{new Date(r.releasedAt).toLocaleDateString()}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="!bg-stone-100 !text-ink hover:!bg-stone-200"
-                        disabled={busy === `${r.classId}::${r.term}`}
-                        onClick={() => toggle(r.classId, r.term, true)}
-                      >
-                        Unrelease
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
     </div>
   );

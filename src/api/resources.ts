@@ -22,6 +22,7 @@ import {
   GradeBand,
   School,
   SchoolClass,
+  SchoolWording,
   Subject,
   Student,
   TeacherDashboard,
@@ -35,8 +36,23 @@ export function login(email: string, password: string) {
 
 export const school = {
   get: () => api.get<School>('/school'),
-  update: (data: Partial<{ terms: string[]; currentTerm: string; gradingScale: GradeBand[] }>) =>
-    api.patch<School>('/school', data),
+  update: (
+    data: Partial<{
+      terms: string[];
+      currentTerm: string;
+      gradingScale: GradeBand[];
+      name: string;
+      address: string;
+      phone: string;
+      motto: string;
+      headTeacherName: string;
+      logo: string | null;
+      signature: string | null;
+      stamp: string | null;
+      brandColor: string | null;
+      wording: Partial<SchoolWording>;
+    }>
+  ) => api.patch<School>('/school', data),
 };
 
 export type HelpPage =
@@ -72,7 +88,10 @@ export const subjects = {
 // Unauthenticated endpoints for the public /apply/:slug page — no token is
 // attached (there isn't one), the backend resolves the school from :slug.
 export const publicApply = {
-  getSchool: (slug: string) => api.get<{ name: string }>(`/public/schools/${encodeURIComponent(slug)}`),
+  getSchool: (slug: string) =>
+    api.get<{ name: string; logo: string | null; motto: string | null; brandColor: string | null }>(
+      `/public/schools/${encodeURIComponent(slug)}`
+    ),
   submit: (slug: string, data: Record<string, unknown>) =>
     api.post<{ ok: true; applicantName: string }>(`/public/schools/${encodeURIComponent(slug)}/admissions`, data),
 };
@@ -114,7 +133,10 @@ export const admissions = {
 
 export const resultReleases = {
   list: () => api.get<ResultRelease[]>('/result-releases'),
-  release: (classId: string, term: string) => api.post<ResultRelease>('/result-releases', { classId, term }),
+  release: (classId: string, term: string, withheldStudentIds: string[] = []) =>
+    api.post<ResultRelease>('/result-releases', { classId, term, withheldStudentIds }),
+  updateWithheld: (classId: string, term: string, withheldStudentIds: string[]) =>
+    api.patch<ResultRelease>('/result-releases', { classId, term, withheldStudentIds }),
   unrelease: (classId: string, term: string) => api.delete<void>('/result-releases', { classId, term }),
 };
 

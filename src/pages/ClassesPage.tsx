@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import { classes as classesApi, subjects as subjectsApi, users as usersApi } from '../api/resources';
 import { ClassSubject, SchoolClass, Subject, UserAccount } from '../api/types';
 import { useHelpFacts } from '../components/HelpContext';
+import { useWording } from '../hooks/useWording';
 
 export default function ClassesPage() {
+  const words = useWording();
   const [classList, setClassList] = useState<SchoolClass[]>([]);
   const [teachers, setTeachers] = useState<UserAccount[]>([]);
   const [subjectList, setSubjectList] = useState<Subject[]>([]);
@@ -107,7 +109,7 @@ export default function ClassesPage() {
         <input placeholder="Class name (e.g. JSS1 Gold)" value={name} onChange={(e) => setName(e.target.value)} required />
         <select value={formTeacherId} onChange={(e) => setFormTeacherId(e.target.value)} required>
           <option value="" disabled>
-            Select form teacher
+            Select {words.classTeacher.toLowerCase()}
           </option>
           {teachers.map((t) => (
             <option key={t._id} value={t._id}>
@@ -125,7 +127,7 @@ export default function ClassesPage() {
           <thead>
             <tr>
               <th>Name</th>
-              <th>Form Teacher</th>
+              <th>{words.classTeacher}</th>
               <th>Subjects</th>
               <th></th>
             </tr>
@@ -138,7 +140,7 @@ export default function ClassesPage() {
                   <select value={c.formTeacherId} onChange={(e) => handleChangeFormTeacher(c._id, e.target.value)}>
                     {!teachers.some((t) => t._id === c.formTeacherId) && (
                       <option value={c.formTeacherId} disabled>
-                        Select form teacher
+                        Select {words.classTeacher.toLowerCase()}
                       </option>
                     )}
                     {teachers.map((t) => (
@@ -177,7 +179,7 @@ export default function ClassesPage() {
         <div className="card mt-6">
           <h2>Subjects for {editingClass.name}</h2>
           <p className="info-card-sub mb-3">
-            Tick the subjects this class takes. Leave the teacher as "Form teacher" when{' '}
+            Tick the subjects this class takes. Leave the teacher as "{words.classTeacher}" when{' '}
             {teacherNameFor(editingClass.formTeacherId)} teaches it; pick a subject teacher otherwise. Subject teachers
             can only grade their own subject.
           </p>
@@ -211,7 +213,9 @@ export default function ClassesPage() {
                             disabled={!checked}
                             onChange={(e) => setDraft(new Map(draft).set(s._id, e.target.value))}
                           >
-                            <option value="">Form teacher ({teacherNameFor(editingClass.formTeacherId)})</option>
+                            <option value="">
+                              {words.classTeacher} ({teacherNameFor(editingClass.formTeacherId)})
+                            </option>
                             {teachers
                               .filter((t) => t._id !== editingClass.formTeacherId)
                               .map((t) => (
